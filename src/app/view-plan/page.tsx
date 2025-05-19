@@ -6,8 +6,8 @@ import Link from "next/link";
 import { useLearningPath } from "@/context/learning-path-context";
 import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
 import { generateModuleContent } from "@/ai/flows/generate-module-content";
-import type { GenerateModuleContentInput, GenerateModuleContentOutput } from "@/ai/flows/content-types";
-import { generateModuleVideo, type GenerateModuleVideoInput, type GenerateModuleVideoOutput } from "@/ai/flows/generate-module-video";
+import type { GenerateModuleContentInput, GenerateModuleContentOutput, GenerateModuleVideoInput, GenerateModuleVideoOutput  } from "@/ai/flows/content-types";
+import { generateModuleVideo } from "@/ai/flows/generate-module-video";
 import { saveLearningPath, type SavedModuleDetailedContent, type SavedLearningPath } from "@/services/learningPathService";
 import { useAuth } from "@/context/auth-context";
 import { LearningPathDisplay } from "@/components/learning-path-display";
@@ -46,9 +46,9 @@ type SectionContent = {
   sectionTitle: string;
   sectionContent: string;
   recommendedYoutubeVideoQuery: string;
-  videoId?: string;
-  videoTitle?: string;
-  videoUrl?: string;
+  videoId?: string | undefined;
+  videoTitle?: string | undefined;
+  videoUrl?: string | undefined;
 };
 
 type ModuleContentState = {
@@ -245,9 +245,9 @@ export default function ViewPlanPage() {
                   sectionTitle: section.sectionTitle,
                   sectionContent: section.sectionContent,
                   recommendedYoutubeVideoQuery: section.recommendedYoutubeVideoQuery,
-                  videoId: videoResult.videoId === undefined ? null : videoResult.videoId,
-                  videoTitle: videoResult.videoTitle === undefined ? null : videoResult.videoTitle,
-                  videoUrl: videoResult.videoUrl === undefined ? null : videoResult.videoUrl,
+                  videoId: videoResult.videoId,
+                  videoTitle: videoResult.videoTitle,
+                  videoUrl: videoResult.videoUrl,
                 }))
                 .catch(videoError => {
                   console.error(`Error generating video for section "${section.sectionTitle}" in module "${module.title}" using query "${section.recommendedYoutubeVideoQuery}":`, videoError);
