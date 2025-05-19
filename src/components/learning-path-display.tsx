@@ -13,7 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BookMarked, NotebookText, Lightbulb, TimerIcon, CheckCircle2, Sparkles, AlertCircleIcon, Youtube } from "lucide-react";
+import { BookMarked, NotebookText, Lightbulb, TimerIcon, CheckCircle2, Sparkles, AlertCircleIcon, Youtube, ExternalLink as ExternalLinkIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
 
 type LearningModule = LearningPathData['modules'][number];
 
@@ -51,8 +52,52 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
       </h2>
       <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-4">
         {path.modules.map((module: LearningModule, index: number) => {
-          const currentModuleDetailedContent = moduleContents?.[index];
-          const hasSections = !!currentModuleDetailedContent?.sections && currentModuleDetailedContent.sections.length > 0;
+          const currentModuleDetailedContentState = moduleContents?.[index];
+          const hasSections = !!currentModuleDetailedContentState?.sections && currentModuleDetailedContentState.sections.length > 0;
+          const isLoadingDetails = !!currentModuleDetailedContentState?.isLoading;
+          const hasErrorDetails = !!currentModuleDetailedContentState?.error;
+
+          // State for toggling visibility of the detailed content section
+          const [isDetailedSectionOpen, setIsDetailedSectionOpen] = useState(false);
+
+          const handleToggleOrGenerateDetails = () => {
+            if (isLoadingDetails) return;
+
+            if (hasSections) {
+              setIsDetailedSectionOpen(!isDetailedSectionOpen);
+            } else if (onGenerateModuleContent && !hasErrorDetails) {
+              onGenerateModuleContent(index, module.title, module.description);
+              setIsDetailedSectionOpen(true); // Open section to show loading/content
+            } else if (hasErrorDetails && onGenerateModuleContent) { // Allow retry on error
+              onGenerateModuleContent(index, module.title, module.description);
+              setIsDetailedSectionOpen(true);
+            }
+          };
+
+          let detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />;
+          let detailButtonText = "Detailed Content & Resources";
+          let buttonDisabled = false;
+
+          if(isLoadingDetails) {
+            detailButtonIcon = <Spinner className="mr-2 h-5 w-5" />;
+            detailButtonText = "Generating Details...";
+            buttonDisabled = true;
+          } else if (hasSections) {
+            detailButtonIcon = isDetailedSectionOpen ? <ChevronUp className="mr-2 h-5 w-5" /> : <ChevronDown className="mr-2 h-5 w-5" />;
+            detailButtonText = isDetailedSectionOpen ? "Hide Details" : "Show Details";
+          } else if (onGenerateModuleContent && !hasErrorDetails) {
+            detailButtonIcon = <Sparkles className="mr-2 h-5 w-5" />;
+            detailButtonText = "Generate & Show Details";
+          } else if (hasErrorDetails) {
+            detailButtonIcon = <AlertCircleIcon className="mr-2 h-5 w-5 text-destructive" />;
+            detailButtonText = onGenerateModuleContent ? "Retry Generating Details" : "Error Loading Details";
+            buttonDisabled = !onGenerateModuleContent; // Disable only if no retry mechanism
+          } else {
+            // Case where there's no content, no error, and no onGenerateModuleContent prop
+             detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />; // Default icon
+             buttonDisabled = true; // Can't do anything
+          }
+
 
           return (
             <AccordionItem value={`module-${index}`} key={index} className="border bg-card rounded-lg shadow-md">
@@ -82,73 +127,73 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                     </p>
                   </div>
 
-                  {/* Detailed Content Section - now section based */}
-                  {(onGenerateModuleContent || hasSections || currentModuleDetailedContent?.isLoading || currentModuleDetailedContent?.error) && (
+                  {/* Collapsible Detailed Content Section */}
+                  {(onGenerateModuleContent || hasSections || isLoadingDetails || hasErrorDetails) && (
                     <div className="mt-4 pt-4 border-t">
-                      <h4 className="font-medium mb-2 text-lg">Detailed Content & Resources:</h4>
-                      
-                      {currentModuleDetailedContent?.isLoading && (
-                        <div className="flex items-center space-x-2 text-muted-foreground">
-                          <Spinner className="h-5 w-5" />
-                          <span>Generating content...</span>
+                      <Button 
+                        variant="ghost" 
+                        onClick={handleToggleOrGenerateDetails}
+                        className="w-full justify-start text-lg font-medium mb-3 pl-0 hover:bg-transparent text-left h-auto py-2"
+                        disabled={buttonDisabled}
+                      >
+                        <div className="flex items-center">
+                          {detailButtonIcon}
+                          <span>{detailButtonText}</span>
                         </div>
-                      )}
+                      </Button>
+                      
+                      {isDetailedSectionOpen && (
+                        <div className="pl-2 space-y-3">
+                          {isLoadingDetails && (
+                            <div className="flex items-center space-x-2 text-muted-foreground py-4">
+                              <Spinner className="h-5 w-5" />
+                              <span>Generating detailed content...</span>
+                            </div>
+                          )}
 
-                      {currentModuleDetailedContent?.error && !currentModuleDetailedContent.isLoading && (
-                        <Alert variant="destructive" className="mt-2">
-                          <AlertCircleIcon className="h-4 w-4" />
-                          <AlertTitle>Error Generating Content</AlertTitle>
-                          <AlertDescription>{currentModuleDetailedContent.error}</AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      {/* Display sections if available */}
-                      {hasSections && !currentModuleDetailedContent?.isLoading && currentModuleDetailedContent?.sections && (
-                        <div className="space-y-4 mt-4">
-                          {currentModuleDetailedContent.sections.map((section, secIdx) => (
-                            <Card key={secIdx} className="shadow-sm bg-secondary/10">
-                              <CardHeader>
-                                {section.recommendedYoutubeVideoQuery && (
-                                    <div className="mb-3">
-                                      <h5 className="font-medium mb-1 flex items-center text-sm">
-                                        <Youtube className="h-4 w-4 mr-2 text-red-500" />
-                                        Suggested Video for this Section:
-                                      </h5>
-                                      <a
-                                        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(section.recommendedYoutubeVideoQuery)}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-primary hover:underline hover:text-accent text-sm transition-colors inline-flex items-center group"
-                                      >
-                                        {section.recommendedYoutubeVideoQuery}
-                                        <ExternalLink className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
-                                      </a>
-                                    </div>
-                                  )}
-                                <CardTitle className="text-lg">{section.sectionTitle}</CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <div 
-                                  className="prose prose-sm max-w-none text-foreground dark:prose-invert" 
-                                  dangerouslySetInnerHTML={{ __html: section.sectionContent.replace(/\n/g, '<br />') }} // Basic markdown to HTML for now
-                                />
-                              </CardContent>
-                            </Card>
-                          ))}
+                          {hasErrorDetails && !isLoadingDetails && (
+                            <Alert variant="destructive" className="mt-2">
+                              <AlertCircleIcon className="h-4 w-4" />
+                              <AlertTitle>Error Generating Content</AlertTitle>
+                              <AlertDescription>{currentModuleDetailedContentState?.error}</AlertDescription>
+                            </Alert>
+                          )}
+                          
+                          {hasSections && !isLoadingDetails && !hasErrorDetails && currentModuleDetailedContentState?.sections && (
+                            <div className="space-y-4 mt-2">
+                              {currentModuleDetailedContentState.sections.map((section, secIdx) => (
+                                <Card key={secIdx} className="shadow-sm bg-background"> {/* Changed background for better contrast */}
+                                  <CardHeader>
+                                    {section.recommendedYoutubeVideoQuery && (
+                                        <div className="mb-3">
+                                          <h5 className="font-medium mb-1 flex items-center text-sm text-muted-foreground">
+                                            <Youtube className="h-4 w-4 mr-2 text-red-600" /> {/* Adjusted color for visibility */}
+                                            Suggested Video for this Section:
+                                          </h5>
+                                          <a
+                                            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(section.recommendedYoutubeVideoQuery)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline hover:text-accent text-sm transition-colors inline-flex items-center group"
+                                          >
+                                            {section.recommendedYoutubeVideoQuery}
+                                            <ExternalLinkIcon className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
+                                          </a>
+                                        </div>
+                                      )}
+                                    <CardTitle className="text-lg text-foreground">{section.sectionTitle}</CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <div 
+                                      className="prose prose-sm max-w-none text-foreground dark:prose-invert" 
+                                      dangerouslySetInnerHTML={{ __html: section.sectionContent }}
+                                    />
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      
-                      {/* Button to generate content */}
-                      {onGenerateModuleContent && !currentModuleDetailedContent?.isLoading && !hasSections && !currentModuleDetailedContent?.error && (
-                        <Button 
-                          onClick={() => onGenerateModuleContent(index, module.title, module.description)}
-                          variant="outline"
-                          size="sm"
-                          className="mt-3"
-                        >
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Generate Detailed Content & Video Suggestions
-                        </Button>
                       )}
                     </div>
                   )}
@@ -177,21 +222,23 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
   );
 }
 
-function ExternalLink(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
-    </svg>
-  );
-}
+// Re-add ExternalLink if it was removed or ensure it's imported from lucide-react
+// For now, defining it locally to ensure it exists.
+// const ExternalLink = (props: React.SVGProps<SVGSVGElement>) => ( // Already imported as ExternalLinkIcon
+//     <svg
+//       xmlns="http://www.w3.org/2000/svg"
+//       viewBox="0 0 24 24"
+//       fill="none"
+//       stroke="currentColor"
+//       strokeWidth="2"
+//       strokeLinecap="round"
+//       strokeLinejoin="round"
+//       {...props}
+//     >
+//       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+//       <polyline points="15 3 21 3 21 9" />
+//       <line x1="10" y1="14" x2="21" y2="3" />
+//     </svg>
+//   );
+
+    
