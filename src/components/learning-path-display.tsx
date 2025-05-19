@@ -1,8 +1,8 @@
 
 "use client";
 
-import type { GenerateLearningPathOutput as LearningPathData, GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
-import type { ModuleSectionSchema } from "@/ai/flows/generate-module-content";
+import type { GenerateLearningPathOutput as LearningPathData } from "@/ai/flows/generate-learning-path";
+import type { ModuleSectionSchema } from "@/ai/flows/generate-module-content"; // Corrected import name
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -13,10 +13,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BookMarked, NotebookText, Lightbulb, CheckCircle2, Sparkles, AlertCircleIcon, Youtube, ExternalLink as ExternalLinkIcon, ChevronDown, ChevronUp, HelpCircle, RefreshCw } from "lucide-react"; // Added RefreshCw
+import { BookMarked, NotebookText, Lightbulb, CheckCircle2, Sparkles, AlertCircleIcon, Youtube, ExternalLink as ExternalLinkIcon, ChevronDown, ChevronUp, HelpCircle, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import Link from 'next/link';
-import type { SavedModuleQuizStatus, SavedLearningPath } from "@/services/learningPathService"; // Import types
+import type { SavedModuleQuizStatus, SavedLearningPath } from "@/services/learningPathService";
 
 type LearningModule = LearningPathData['modules'][number];
 
@@ -25,18 +25,19 @@ export type LearningModuleWithQuizStatus = LearningModule & {
   quizStatus?: SavedModuleQuizStatus;
 };
 
-type SectionContent = ModuleSectionSchema;
+// Updated: This is now an array of section objects
+type SectionContent = ModuleSectionSchema; // This is the type for one section
 
 type ModuleDetailedContentState = {
   isLoading: boolean;
-  sections: SectionContent[] | null;
+  sections: SectionContent[] | null; // Array of sections
   error: string | null;
 };
 
 type LearningPathDisplayProps = {
-  path: { modules: LearningModuleWithQuizStatus[] } & Omit<LearningPathData, 'modules'> & Partial<Pick<SavedLearningPath, 'id'>>; // Allow 'id' for saved paths
-  learningGoal: string; 
-  moduleContents?: { [moduleIndex: string]: ModuleDetailedContentState }; // moduleIndex is string key
+  path: { modules: LearningModuleWithQuizStatus[] } & Omit<LearningPathData, 'modules'> & Partial<Pick<SavedLearningPath, 'id'>>;
+  learningGoal: string;
+  moduleContents?: { [moduleIndex: string]: ModuleDetailedContentState };
   onGenerateModuleContent?: (moduleIndex: number, moduleTitle: string, moduleDescription: string) => void;
 };
 
@@ -56,12 +57,13 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
     const moduleKey = String(index);
     const currentDetailedState = moduleContents?.[moduleKey];
     const isLoadingDetails = !!currentDetailedState?.isLoading;
-    const hasSections = !!currentDetailedState?.sections && currentDetailedState.sections.length > 0;
+    // Check if sections array exists and has items
+    const hasSectionsData = !!currentDetailedState?.sections && currentDetailedState.sections.length > 0;
     const hasErrorDetails = !!currentDetailedState?.error;
 
     if (isLoadingDetails) return;
 
-    if (hasSections || hasErrorDetails) {
+    if (hasSectionsData || hasErrorDetails) {
       setDetailedSectionOpen(prev => ({ ...prev, [moduleKey]: !prev[moduleKey] }));
     } else if (onGenerateModuleContent) {
       onGenerateModuleContent(index, module.title, module.description);
@@ -71,14 +73,12 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
   
   return (
     <div className="mt-6">
-      <h2 className="text-2xl font-semibold mb-6 text-center text-primary">
-        Path Modules
-      </h2>
+      {/* Removed "Path Modules" title from here */}
       <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-6">
         {path.modules.map((module: LearningModuleWithQuizStatus, index: number) => {
           const moduleKey = String(index);
           const currentDetailedContentState = moduleContents?.[moduleKey];
-          const hasSections = !!currentDetailedContentState?.sections && currentDetailedContentState.sections.length > 0;
+          const hasSectionsData = !!currentDetailedContentState?.sections && currentDetailedContentState.sections.length > 0;
           const isLoadingDetails = !!currentDetailedContentState?.isLoading;
           const hasErrorDetails = !!currentDetailedContentState?.error;
           const isDetailedViewOpen = !!detailedSectionOpen[moduleKey];
@@ -91,7 +91,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
             detailButtonIcon = <Spinner className="mr-2 h-5 w-5" />;
             detailButtonText = "Generating Details...";
             detailButtonDisabled = true;
-          } else if (hasSections) {
+          } else if (hasSectionsData) {
             detailButtonIcon = isDetailedViewOpen ? <ChevronUp className="mr-2 h-5 w-5" /> : <ChevronDown className="mr-2 h-5 w-5" />;
             detailButtonText = isDetailedViewOpen ? "Hide Details" : "Show Details";
           } else if (onGenerateModuleContent && !hasErrorDetails) { 
@@ -100,7 +100,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
           } else if (hasErrorDetails && onGenerateModuleContent) { 
              detailButtonIcon = <AlertCircleIcon className="mr-2 h-5 w-5 text-destructive" />;
              detailButtonText = "Retry Generating Details";
-          } else if (!onGenerateModuleContent && !hasSections && !hasErrorDetails) { 
+          } else if (!onGenerateModuleContent && !hasSectionsData && !hasErrorDetails) { 
              detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />;
              detailButtonText = "Detailed Content Unavailable";
              detailButtonDisabled = true;
@@ -127,7 +127,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
             moduleDescription: encodeURIComponent(module.description),
             learningGoal: encodeURIComponent(learningGoal),
           });
-          if (path.id) { // If it's a saved path, it will have an id
+          if (path.id) { 
             queryParams.set('pathId', path.id);
             queryParams.set('moduleIndex', String(index));
           }
@@ -161,7 +161,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
                     </div>
                   </div>
                   
-                  {(onGenerateModuleContent || hasSections || isLoadingDetails || hasErrorDetails) && (
+                  {(onGenerateModuleContent || hasSectionsData || isLoadingDetails || hasErrorDetails) && (
                     <div className="mt-4 pt-4 border-t border-border">
                       <Button 
                         variant="ghost" 
@@ -189,7 +189,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
                               <AlertDescription>{currentDetailedContentState?.error}</AlertDescription>
                             </Alert>
                           )}
-                          {hasSections && !isLoadingDetails && !hasErrorDetails && currentDetailedContentState?.sections && (
+                          {hasSectionsData && !isLoadingDetails && !hasErrorDetails && currentDetailedContentState?.sections && (
                             <div className="space-y-4 mt-1">
                               {currentDetailedContentState.sections.map((section, secIdx) => (
                                 <Card key={secIdx} className="shadow-md bg-muted/30 border-border overflow-hidden">
@@ -214,7 +214,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
                                   <CardContent>
                                     <div 
                                       className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-ul:text-muted-foreground prose-li:marker:text-primary"
-                                      dangerouslySetInnerHTML={{ __html: section.sectionContent }} // Assumes sectionContent is trusted HTML/Markdown
+                                      dangerouslySetInnerHTML={{ __html: section.sectionContent }} 
                                     />
                                   </CardContent>
                                 </Card>
@@ -265,3 +265,4 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
     </div>
   );
 }
+
