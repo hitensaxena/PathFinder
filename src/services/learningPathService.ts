@@ -2,7 +2,7 @@
 import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { GenerateLearningPathOutput } from '@/ai/flows/generate-learning-path';
-import type { GenerateModuleContentOutput } from '@/ai/flows/generate-module-content'; 
+// Removed GenerateModuleContentOutput as it's not directly used here anymore for top-level type, section detail is fine
 
 const LEARNING_PATHS_COLLECTION = 'learningPaths';
 
@@ -12,15 +12,25 @@ interface ModuleSectionDetail {
   recommendedYoutubeVideoQuery: string;
 }
 
-export interface SavedModuleDetailedContent {
-  sections: ModuleSectionDetail[];
+export interface SavedModuleQuizStatus {
+  score: number;
+  completed: boolean;
+  lastTaken: Timestamp;
 }
 
+export interface SavedModuleDetailedContent {
+  sections: ModuleSectionDetail[];
+  quiz?: SavedModuleQuizStatus; // Added quiz status
+}
+
+// This represents the structure we expect when fetching from DB for modulesDetails
 interface FetchedSavedModuleDetailedContent {
-    sections?: ModuleSectionDetail[]; // New format
-    content?: string; // Old flat content for a whole module
-    recommendedYoutubeVideoQuery?: string; // Old single query for a whole module (pre-sections)
-    youtubeSearchQueries?: string[]; // Even older array of queries for a whole module
+    sections?: ModuleSectionDetail[];
+    quiz?: SavedModuleQuizStatus;
+    // For backward compatibility - these fields might exist on older documents
+    content?: string; 
+    recommendedYoutubeVideoQuery?: string; 
+    youtubeSearchQueries?: string[]; 
 }
 
 
@@ -29,7 +39,7 @@ export interface SavedLearningPath extends GenerateLearningPathOutput {
   userId: string;
   learningGoal: string;
   createdAt: Timestamp;
-  modulesDetails?: { [moduleIndex: string]: FetchedSavedModuleDetailedContent }; // Use Fetched type here
+  modulesDetails?: { [moduleIndex: string]: FetchedSavedModuleDetailedContent }; 
 }
 
 export async function saveLearningPath(
@@ -78,18 +88,18 @@ export async function getUserLearningPaths(userId: string): Promise<SavedLearnin
     );
     const querySnapshot = await getDocs(q);
     const paths: SavedLearningPath[] = [];
-    querySnapshot.forEach((docSnap) => { // Renamed doc to docSnap to avoid conflict with doc function from firestore
-      const data = docSnap.data() as Omit<SavedLearningPath, 'id' | 'learningGoal' | 'modulesDetails' | 'createdAt'> & { // Ensure createdAt is handled
+    querySnapshot.forEach((docSnap) => { 
+      const data = docSnap.data() as Omit<SavedLearningPath, 'id' | 'learningGoal' | 'modulesDetails' | 'createdAt'> & { 
         learningGoal?: string;
         modulesDetails?: { [moduleIndex: string]: FetchedSavedModuleDetailedContent };
-        createdAt?: Timestamp; // Firestore timestamp
+        createdAt?: Timestamp; 
       };
       paths.push({
         id: docSnap.id,
         userId: data.userId,
         modules: data.modules || [],
         learningGoal: data.learningGoal || "Untitled Learning Path",
-        createdAt: data.createdAt || Timestamp.now(), // Provide a fallback for createdAt
+        createdAt: data.createdAt || Timestamp.now(), 
         modulesDetails: data.modulesDetails || {},
       });
     });
@@ -106,7 +116,7 @@ export async function getUserLearningPaths(userId: string): Promise<SavedLearnin
 export async function updateLearningPathModuleDetail(
   pathId: string,
   moduleIndex: number,
-  detail: SavedModuleDetailedContent 
+  detail: Pick<SavedModuleDetailedContent, 'sections'> // Can only update sections here
 ): Promise<void> {
   if (!pathId) throw new Error('Path ID is required.');
   if (moduleIndex < 0) throw new Error('Module index is invalid.');
@@ -116,8 +126,9 @@ export async function updateLearningPathModuleDetail(
 
   const pathRef = doc(db, LEARNING_PATHS_COLLECTION, pathId);
   try {
+    // We only update the sections part, preserving other potential fields like quiz status
     await updateDoc(pathRef, {
-      [`modulesDetails.${String(moduleIndex)}`]: detail, 
+      [`modulesDetails.${String(moduleIndex)}.sections`]: detail.sections,
     });
   } catch (error) {
     console.error(`Error updating module detail for path ${pathId}, module ${moduleIndex}: `, error);
@@ -127,6 +138,36 @@ export async function updateLearningPathModuleDetail(
     throw new Error('An unknown error occurred while updating module detail.');
   }
 }
+
+export async function updateLearningPathModuleQuizStatus(
+  pathId: string,
+  moduleIndex: number,
+  score: number,
+  completed: boolean
+): Promise<void> {
+  if (!pathId) throw new Error('Path ID is required.');
+  if (moduleIndex < 0) throw new Error('Module index is invalid.');
+  if (score < 0 || score > 100) throw new Error('Score must be between 0 and 100.');
+
+  const pathRef = doc(db, LEARNING_PATHS_COLLECTION, pathId);
+  const quizStatus: SavedModuleQuizStatus = {
+    score,
+    completed,
+    lastTaken: Timestamp.now(),
+  };
+  try {
+    await updateDoc(pathRef, {
+      [`modulesDetails.${String(moduleIndex)}.quiz`]: quizStatus,
+    });
+  } catch (error) {
+    console.error(`Error updating quiz status for path ${pathId}, module ${moduleIndex}: `, error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to update quiz status: ${error.message}`);
+    }
+    throw new Error('An unknown error occurred while updating quiz status.');
+  }
+}
+
 
 export async function deleteLearningPath(pathId: string): Promise<void> {
   if (!pathId) {

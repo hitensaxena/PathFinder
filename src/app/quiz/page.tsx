@@ -4,19 +4,21 @@
 import { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { generateQuiz, type GenerateQuizInput, type QuizQuestion } from '@/ai/flows/generate-quiz-flow';
+import { updateLearningPathModuleQuizStatus } from '@/services/learningPathService'; // Import service
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/spinner';
-import { AlertCircle, CheckCircle, ChevronLeft, Home, Info, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle, ChevronLeft, Home, Info, Sparkles, RefreshCw } from 'lucide-react'; // Added RefreshCw
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress'; // For progress bar
+import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 
 
 type UserAnswers = { [questionIndex: number]: number };
+const QUIZ_COMPLETION_THRESHOLD = 75; // 75%
 
 function QuizPageContent() {
   const searchParams = useSearchParams();
@@ -26,6 +28,10 @@ function QuizPageContent() {
   const moduleTitle = searchParams.get('moduleTitle');
   const moduleDescription = searchParams.get('moduleDescription');
   const learningGoal = searchParams.get('learningGoal');
+  const pathId = searchParams.get('pathId'); // For saved paths
+  const moduleIndexStr = searchParams.get('moduleIndex'); // For saved paths
+  const moduleIndex = moduleIndexStr ? parseInt(moduleIndexStr) : undefined;
+
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,7 +58,7 @@ function QuizPageContent() {
 
     setIsLoading(true);
     setError(null);
-    setQuestions([]); // Clear previous questions
+    setQuestions([]); 
     setCurrentQuestionIndex(0);
     setUserAnswers({});
     setQuizCompleted(false);
@@ -84,7 +90,6 @@ function QuizPageContent() {
     } finally {
       setIsLoading(false);
     }
-  // Ensure toast is stable or remove if it causes excessive reruns without actual need
   }, [moduleTitle, moduleDescription, learningGoal, toast]); 
 
   useEffect(() => {
@@ -96,7 +101,7 @@ function QuizPageContent() {
     setSelectedOption(optionIndex);
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => { // Make async for saving score
     if (selectedOption === undefined) {
         toast({ title: "No option selected", description: "Please select an answer before proceeding.", variant: "destructive"});
         return;
@@ -104,7 +109,7 @@ function QuizPageContent() {
 
     const newAnswers = { ...userAnswers, [currentQuestionIndex]: selectedOption };
     setUserAnswers(newAnswers);
-    setSelectedOption(undefined); // Reset for next question
+    setSelectedOption(undefined); 
 
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
@@ -119,16 +124,41 @@ function QuizPageContent() {
       const finalScore = (correctAnswers / questions.length) * 100;
       setScore(finalScore);
       setQuizCompleted(true);
+      
+      const isModuleCompleted = finalScore >= QUIZ_COMPLETION_THRESHOLD;
+
       toast({
         title: "Quiz Submitted!",
-        description: `You scored ${finalScore.toFixed(0)}%.`,
+        description: `You scored ${finalScore.toFixed(0)}%. ${isModuleCompleted ? "Module completed!" : "Try again to improve your score."}`,
+        variant: isModuleCompleted ? "default" : "destructive"
       });
+
+      // Save score if pathId and moduleIndex are available
+      if (pathId && moduleIndex !== undefined) {
+        try {
+          await updateLearningPathModuleQuizStatus(pathId, moduleIndex, finalScore, isModuleCompleted);
+          toast({
+            title: "Progress Saved",
+            description: "Your quiz score has been saved for this module.",
+          });
+        } catch (saveError) {
+          console.error("Error saving quiz status:", saveError);
+          toast({
+            title: "Save Error",
+            description: "Could not save your quiz score. Please try again later.",
+            variant: "destructive",
+          });
+        }
+      }
     }
   };
 
 
   const handleGoBack = () => {
-    if (window.history.length > 2) { 
+    // If pathId exists, we likely came from saved-paths, otherwise from view-plan or directly
+    if (pathId) {
+        router.push('/saved-paths'); // Or a more specific path if available
+    } else if (window.history.length > 2) { 
       router.back();
     } else {
       router.push('/');
@@ -136,7 +166,7 @@ function QuizPageContent() {
   };
   
   const handleRetakeQuiz = () => {
-    fetchQuiz(); // This will reset state and fetch new questions
+    fetchQuiz(); 
   };
 
 
@@ -164,7 +194,7 @@ function QuizPageContent() {
     );
   }
 
-  if (questions.length === 0 && !isLoading) { // Check !isLoading to avoid showing this during initial load
+  if (questions.length === 0 && !isLoading) {
     return (
       <Alert className="max-w-2xl mx-auto my-10">
         <AlertCircle className="h-4 w-4" />
@@ -186,7 +216,7 @@ function QuizPageContent() {
       <Card className="shadow-xl border-t-4 border-primary">
         <CardHeader>
           <Button onClick={handleGoBack} variant="outline" size="sm" className="absolute top-4 left-4">
-            <ChevronLeft className="mr-1 h-4 w-4" /> Back to Path
+            <ChevronLeft className="mr-1 h-4 w-4" /> Back
           </Button>
           <CardTitle className="text-2xl md:text-3xl text-center pt-8">Quiz: {moduleTitle}</CardTitle>
           {!quizCompleted && (
@@ -232,11 +262,11 @@ function QuizPageContent() {
               <h3 className="text-2xl font-semibold mb-2">Quiz Complete!</h3>
               <p className="text-3xl font-bold text-primary mb-1">Your Score: {score.toFixed(0)}%</p>
               <p className="text-muted-foreground mb-4">
-                {score >= 75 ? "Excellent work! You've demonstrated a strong understanding." : "Good effort! Review the material and try again to improve your score."}
+                {score >= QUIZ_COMPLETION_THRESHOLD ? "Excellent work! You've demonstrated a strong understanding and completed this module." : "Good effort! Review the material and try again to improve your score."}
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-3">
                 <Button onClick={handleRetakeQuiz} variant="outline">
-                  <Sparkles className="mr-2 h-4 w-4" /> Retake Quiz
+                  <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
                 </Button>
                 <Button onClick={handleGoBack} >
                   <ChevronLeft className="mr-2 h-4 w-4" /> Back to Learning Path
@@ -250,7 +280,7 @@ function QuizPageContent() {
                 <p className="font-semibold text-lg mb-1">Question {qIndex + 1}: {q.questionText}</p>
                 <RadioGroup
                   value={userAnswers[qIndex]?.toString()}
-                  disabled // Always disabled in review mode
+                  disabled 
                   className="space-y-2 mt-3"
                 >
                   {q.options.map((option, oIndex) => (
@@ -259,7 +289,7 @@ function QuizPageContent() {
                       : userAnswers[qIndex] === oIndex && oIndex !== q.correctAnswerIndex ? 'border-red-600 bg-red-500/20 text-red-800' 
                       : 'bg-background/50'}`}>
                       <RadioGroupItem value={oIndex.toString()} id={`review-q${qIndex}-o${oIndex}`} className="shrink-0" 
-                        checked={userAnswers[qIndex] === oIndex} // Manually control checked for review
+                        checked={userAnswers[qIndex] === oIndex} 
                       />
                       <Label htmlFor={`review-q${qIndex}-o${oIndex}`} className="flex-grow text-base">
                         {option}

@@ -1,9 +1,8 @@
 
 "use client";
 
-import type { GenerateLearningPathOutput as LearningPathData } from "@/ai/flows/generate-learning-path";
-import type { GenerateModuleContentOutput, ModuleSectionSchema } from "@/ai/flows/generate-module-content";
-import { generateQuiz, type GenerateQuizInput, type GenerateQuizOutput, type QuizQuestion } from "@/ai/flows/generate-quiz-flow";
+import type { GenerateLearningPathOutput as LearningPathData, GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
+import type { ModuleSectionSchema } from "@/ai/flows/generate-module-content";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -12,15 +11,19 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BookMarked, NotebookText, Lightbulb, CheckCircle2, Sparkles, AlertCircleIcon, Youtube, ExternalLink as ExternalLinkIcon, ChevronDown, ChevronUp, HelpCircle, ListChecks } from "lucide-react";
+import { BookMarked, NotebookText, Lightbulb, CheckCircle2, Sparkles, AlertCircleIcon, Youtube, ExternalLink as ExternalLinkIcon, ChevronDown, ChevronUp, HelpCircle, RefreshCw } from "lucide-react"; // Added RefreshCw
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import Link from 'next/link'; // Added for navigation
+import Link from 'next/link';
+import type { SavedModuleQuizStatus, SavedLearningPath } from "@/services/learningPathService"; // Import types
 
 type LearningModule = LearningPathData['modules'][number];
+
+// New type for module that includes optional quiz status
+export type LearningModuleWithQuizStatus = LearningModule & {
+  quizStatus?: SavedModuleQuizStatus;
+};
 
 type SectionContent = ModuleSectionSchema;
 
@@ -30,25 +33,15 @@ type ModuleDetailedContentState = {
   error: string | null;
 };
 
-// State for a module's quiz is no longer managed here, will be on dedicated quiz page
-// type ModuleQuizState = {
-//   isLoading: boolean;
-//   questions: QuizQuestion[] | null;
-//   error: string | null;
-//   isQuizVisible: boolean; 
-// };
-
 type LearningPathDisplayProps = {
-  path: LearningPathData;
-  learningGoal: string; // Added prop
-  moduleContents?: { [moduleIndex: number]: ModuleDetailedContentState };
+  path: { modules: LearningModuleWithQuizStatus[] } & Omit<LearningPathData, 'modules'> & Partial<Pick<SavedLearningPath, 'id'>>; // Allow 'id' for saved paths
+  learningGoal: string; 
+  moduleContents?: { [moduleIndex: string]: ModuleDetailedContentState }; // moduleIndex is string key
   onGenerateModuleContent?: (moduleIndex: number, moduleTitle: string, moduleDescription: string) => void;
 };
 
 export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, onGenerateModuleContent }: LearningPathDisplayProps) {
-  const { toast } = useToast();
-  const [detailedSectionOpen, setDetailedSectionOpen] = useState<{ [key: string]: boolean }>({}); // Use string keys for moduleIndex
-  // const [moduleQuizzes, setModuleQuizzes] = useState<{ [moduleIndex: number]: ModuleQuizState }>({}); // Quiz state removed
+  const [detailedSectionOpen, setDetailedSectionOpen] = useState<{ [key: string]: boolean }>({});
 
   if (!path || !path.modules || path.modules.length === 0) {
     return (
@@ -59,8 +52,9 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
     );
   }
 
-  const handleToggleOrGenerateDetails = (index: number, module: LearningModule) => {
-    const currentDetailedState = moduleContents?.[index];
+  const handleToggleOrGenerateDetails = (index: number, module: LearningModuleWithQuizStatus) => {
+    const moduleKey = String(index);
+    const currentDetailedState = moduleContents?.[moduleKey];
     const isLoadingDetails = !!currentDetailedState?.isLoading;
     const hasSections = !!currentDetailedState?.sections && currentDetailedState.sections.length > 0;
     const hasErrorDetails = !!currentDetailedState?.error;
@@ -68,10 +62,10 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
     if (isLoadingDetails) return;
 
     if (hasSections || hasErrorDetails) {
-      setDetailedSectionOpen(prev => ({ ...prev, [String(index)]: !prev[String(index)] }));
+      setDetailedSectionOpen(prev => ({ ...prev, [moduleKey]: !prev[moduleKey] }));
     } else if (onGenerateModuleContent) {
       onGenerateModuleContent(index, module.title, module.description);
-      setDetailedSectionOpen(prev => ({ ...prev, [String(index)]: true })); // Auto-open when generating
+      setDetailedSectionOpen(prev => ({ ...prev, [moduleKey]: true })); 
     }
   };
   
@@ -81,7 +75,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
         Path Modules
       </h2>
       <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-6">
-        {path.modules.map((module: LearningModule, index: number) => {
+        {path.modules.map((module: LearningModuleWithQuizStatus, index: number) => {
           const moduleKey = String(index);
           const currentDetailedContentState = moduleContents?.[moduleKey];
           const hasSections = !!currentDetailedContentState?.sections && currentDetailedContentState.sections.length > 0;
@@ -100,18 +94,44 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
           } else if (hasSections) {
             detailButtonIcon = isDetailedViewOpen ? <ChevronUp className="mr-2 h-5 w-5" /> : <ChevronDown className="mr-2 h-5 w-5" />;
             detailButtonText = isDetailedViewOpen ? "Hide Details" : "Show Details";
-          } else if (onGenerateModuleContent && !hasErrorDetails) { // Can generate
+          } else if (onGenerateModuleContent && !hasErrorDetails) { 
             detailButtonIcon = <Sparkles className="mr-2 h-5 w-5" />;
             detailButtonText = "Generate & Show Details";
-          } else if (hasErrorDetails && onGenerateModuleContent) { // Error occurred, can retry
+          } else if (hasErrorDetails && onGenerateModuleContent) { 
              detailButtonIcon = <AlertCircleIcon className="mr-2 h-5 w-5 text-destructive" />;
              detailButtonText = "Retry Generating Details";
-          } else if (!onGenerateModuleContent && !hasSections && !hasErrorDetails) { // No handler and no pre-loaded content
+          } else if (!onGenerateModuleContent && !hasSections && !hasErrorDetails) { 
              detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />;
              detailButtonText = "Detailed Content Unavailable";
              detailButtonDisabled = true;
           }
+          
+          let quizButtonText = "Test Your Knowledge";
+          let quizButtonIcon = <HelpCircle className="mr-2 h-5 w-5 text-primary" />;
+          let quizButtonVariant: "outline" | "default" | "secondary" = "outline";
 
+          if (module.quizStatus) {
+            if (module.quizStatus.completed) {
+              quizButtonText = `Quiz Passed! (${module.quizStatus.score.toFixed(0)}%)`;
+              quizButtonIcon = <CheckCircle2 className="mr-2 h-5 w-5 text-green-600" />;
+              quizButtonVariant = "default"; 
+            } else {
+              quizButtonText = `Retake Quiz (Last: ${module.quizStatus.score.toFixed(0)}%)`;
+              quizButtonIcon = <RefreshCw className="mr-2 h-5 w-5 text-orange-600" />;
+              quizButtonVariant = "secondary";
+            }
+          }
+
+          const queryParams = new URLSearchParams({
+            moduleTitle: encodeURIComponent(module.title),
+            moduleDescription: encodeURIComponent(module.description),
+            learningGoal: encodeURIComponent(learningGoal),
+          });
+          if (path.id) { // If it's a saved path, it will have an id
+            queryParams.set('pathId', path.id);
+            queryParams.set('moduleIndex', String(index));
+          }
+          const quizLink = `/quiz?${queryParams.toString()}`;
 
           return (
             <AccordionItem value={`module-${index}`} key={index} className="border border-border bg-card rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
@@ -122,6 +142,9 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
                     <span className="text-xl font-semibold text-foreground">{module.title}</span>
                     <p className="text-sm text-muted-foreground mt-1">{module.estimatedTime}</p>
                   </div>
+                  {module.quizStatus?.completed && (
+                    <CheckCircle2 className="h-6 w-6 text-green-500 ml-3 flex-shrink-0" title="Module Completed!" />
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="p-6 pt-2 bg-card">
@@ -138,7 +161,6 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
                     </div>
                   </div>
                   
-                  {/* Detailed Content Section Toggle/Button */}
                   {(onGenerateModuleContent || hasSections || isLoadingDetails || hasErrorDetails) && (
                     <div className="mt-4 pt-4 border-t border-border">
                       <Button 
@@ -192,7 +214,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
                                   <CardContent>
                                     <div 
                                       className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-ul:text-muted-foreground prose-li:marker:text-primary"
-                                      dangerouslySetInnerHTML={{ __html: section.sectionContent }}
+                                      dangerouslySetInnerHTML={{ __html: section.sectionContent }} // Assumes sectionContent is trusted HTML/Markdown
                                     />
                                   </CardContent>
                                 </Card>
@@ -204,17 +226,16 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
                     </div>
                   )}
 
-                  {/* Quiz Section Button */}
                   <div className="mt-4 pt-4 border-t border-border">
                      <Button 
-                        variant="outline" 
-                        asChild // Use asChild to make the Button act like a Link
+                        variant={quizButtonVariant}
+                        asChild 
                         className="w-full justify-start text-md font-semibold mb-2 pl-0 hover:bg-accent/20 text-left h-auto py-2"
                       >
-                        <Link href={`/quiz?moduleTitle=${encodeURIComponent(module.title)}&moduleDescription=${encodeURIComponent(module.description)}&learningGoal=${encodeURIComponent(learningGoal)}`}>
+                        <Link href={quizLink}>
                           <div className="flex items-center">
-                            <HelpCircle className="mr-2 h-5 w-5 text-primary" />
-                            <span>Test Your Knowledge</span>
+                            {quizButtonIcon}
+                            <span>{quizButtonText}</span>
                           </div>
                         </Link>
                       </Button>
@@ -235,7 +256,7 @@ export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, o
           <p className="text-muted-foreground">
             This AI-generated path is your launchpad! Use the suggested resources and time estimates to start. 
             {onGenerateModuleContent && " Generate detailed content and video suggestions for each module to dive deeper."}
-            Test your knowledge with the quizzes for each module.
+            Test your knowledge with the quizzes for each module to solidify your understanding and mark modules as complete.
             <br/><br/>
             Remember, learning is a personal journey. Adapt this plan to your own pace, explore topics that capture your interest, and don't be afraid to go off-script. Happy learning!
           </p>

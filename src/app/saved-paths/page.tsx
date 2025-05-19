@@ -10,10 +10,11 @@ import {
   deleteLearningPath,
   updateLearningPathGoal,
   type SavedLearningPath, 
-  type SavedModuleDetailedContent 
+  type SavedModuleDetailedContent,
+  type SavedModuleQuizStatus
 } from "@/services/learningPathService";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
-import { LearningPathDisplay } from "@/components/learning-path-display";
+import { LearningPathDisplay, type LearningModuleWithQuizStatus } from "@/components/learning-path-display"; // Updated import
 import { SavedPathCardActions } from "@/components/saved-path-card-actions";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,13 +26,13 @@ import { useToast } from "@/hooks/use-toast";
 
 type ModuleContentState = {
   isLoading: boolean;
-  sections: GenerateModuleContentOutput['sections'] | null; // Array of sections
+  sections: GenerateModuleContentOutput['sections'] | null; 
   error: string | null;
 };
 
 type AllModuleContentsState = {
   [pathId: string]: {
-    [moduleIndex: string]: ModuleContentState; // Use string for moduleIndex key
+    [moduleIndex: string]: ModuleContentState; 
   };
 };
 
@@ -43,21 +44,20 @@ export default function SavedPathsPage() {
   const [error, setError] = useState<string | null>(null);
   const [moduleContents, setModuleContents] = useState<AllModuleContentsState>({});
 
-  const initializeModuleContents = useCallback((paths: SavedLearningPath[]) => {
+  const initializeModuleAndQuizContents = useCallback((paths: SavedLearningPath[]) => {
     const initialContents: AllModuleContentsState = {};
     paths.forEach(path => {
       initialContents[path.id] = {};
       if (path.modulesDetails) {
         Object.entries(path.modulesDetails).forEach(([moduleIndexStr, detail]) => {
-           const moduleIndexKey = moduleIndexStr; // Already a string
-            // Check if detail is in the new section format, or adapt old format
+           const moduleIndexKey = moduleIndexStr; 
             if (detail.sections && Array.isArray(detail.sections)) {
                  initialContents[path.id][moduleIndexKey] = {
                     isLoading: false,
                     sections: detail.sections,
                     error: null,
                 };
-            } else { // Potentially old format or empty; initialize as empty
+            } else { 
                  initialContents[path.id][moduleIndexKey] = {
                     isLoading: false,
                     sections: null, 
@@ -70,6 +70,7 @@ export default function SavedPathsPage() {
     setModuleContents(initialContents);
   }, []);
 
+
   const fetchPaths = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
@@ -77,7 +78,7 @@ export default function SavedPathsPage() {
     try {
       const paths = await getUserLearningPaths(user.uid);
       setSavedPaths(paths);
-      initializeModuleContents(paths);
+      initializeModuleAndQuizContents(paths);
     } catch (e) {
       console.error("Error fetching saved learning paths:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while fetching your saved paths.";
@@ -86,7 +87,7 @@ export default function SavedPathsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, toast, initializeModuleContents]);
+  }, [user, toast, initializeModuleAndQuizContents]);
 
   useEffect(() => {
     if (authLoading) {
@@ -104,7 +105,7 @@ export default function SavedPathsPage() {
 
   const handleGenerateModuleContentForSavedPath = async (
     pathId: string,
-    learningGoal: string | undefined, // learningGoal comes from path object
+    learningGoal: string | undefined, 
     moduleIndex: number,
     moduleTitle: string,
     moduleDescription: string
@@ -143,9 +144,10 @@ export default function SavedPathsPage() {
       };
       const result = await generateModuleContent(input); 
       
-      const newDetail: SavedModuleDetailedContent = { sections: result.sections };
+      // Ensure detail is correctly typed for updateLearningPathModuleDetail
+      const newDetailUpdate: Pick<SavedModuleDetailedContent, 'sections'> = { sections: result.sections };
 
-      await updateLearningPathModuleDetail(pathId, moduleIndex, newDetail);
+      await updateLearningPathModuleDetail(pathId, moduleIndex, newDetailUpdate);
 
       setModuleContents(prev => ({
         ...prev,
@@ -196,6 +198,7 @@ export default function SavedPathsPage() {
   const handleRenamePath = async (pathId: string, newGoal: string) => {
     try {
       await updateLearningPathGoal(pathId, newGoal);
+      // Optimistically update UI or refetch
       setSavedPaths(prevPaths => prevPaths.map(p => p.id === pathId ? {...p, learningGoal: newGoal} : p));
       toast({ title: "Path Renamed", description: "The learning path has been successfully renamed."});
     } catch (error) {
@@ -204,6 +207,15 @@ export default function SavedPathsPage() {
       toast({ title: "Error Renaming Path", description: errorMessage, variant: "destructive"});
     }
   };
+  
+  const getAugmentedPathForDisplay = (path: SavedLearningPath): { modules: LearningModuleWithQuizStatus[] } & Omit<SavedLearningPath, 'modules'> => {
+    const augmentedModules = path.modules.map((module, index) => ({
+      ...module,
+      quizStatus: path.modulesDetails?.[String(index)]?.quiz,
+    }));
+    return { ...path, modules: augmentedModules };
+  };
+
 
   if (authLoading || (isLoading && user && savedPaths.length === 0)) {
     return (
@@ -253,7 +265,7 @@ export default function SavedPathsPage() {
             <BookCopy className="mr-3 h-8 w-8 text-primary" /> Your Saved Learning Paths
           </h1>
           <p className="text-lg text-muted-foreground">
-            Revisit your personalized learning journeys, generate detailed content, and manage your paths.
+            Revisit your personalized learning journeys, generate detailed content, manage your paths, and test your knowledge.
           </p>
         </div>
 
@@ -286,7 +298,9 @@ export default function SavedPathsPage() {
 
         {!error && user && savedPaths.length > 0 && (
           <div className="space-y-12">
-            {savedPaths.map((path) => (
+            {savedPaths.map((path) => {
+              const displayPath = getAugmentedPathForDisplay(path);
+              return (
               <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary bg-background">
                 <CardHeader className="pb-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
@@ -310,8 +324,8 @@ export default function SavedPathsPage() {
                 </CardHeader>
                 <CardContent>
                   <LearningPathDisplay
-                    path={path}
-                    learningGoal={path.learningGoal || "Untitled Learning Path"} // Pass learningGoal
+                    path={displayPath} // Pass augmented path
+                    learningGoal={path.learningGoal || "Untitled Learning Path"} 
                     moduleContents={moduleContents[path.id] || {}}
                     onGenerateModuleContent={(moduleIndex, moduleTitle, moduleDescription) => 
                       handleGenerateModuleContentForSavedPath(path.id, path.learningGoal, moduleIndex, moduleTitle, moduleDescription)
@@ -319,7 +333,7 @@ export default function SavedPathsPage() {
                   />
                 </CardContent>
               </Card>
-            ))}
+            )})}
           </div>
         )}
       </main>
@@ -342,6 +356,7 @@ function Header() {
           </div>
           <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
         </Link>
+        {/* AuthButtons can be added here if needed on this page specifically */}
       </div>
     </header>
   );
