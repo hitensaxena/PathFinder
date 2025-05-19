@@ -1,76 +1,34 @@
 
 "use client";
 
-import type { GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
+import type { GenerateLearningPathOutput as LearningPathData } from "@/ai/flows/generate-learning-path";
+import type { GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter, // Added for potential future use
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { BookMarked, NotebookText, Lightbulb, TimerIcon, CheckCircle2, Sparkles, AlertCircleIcon, Youtube } from "lucide-react";
 
-type LearningModule = GenerateLearningPathOutput['modules'][number];
+type LearningModule = LearningPathData['modules'][number];
 
+// Represents the state for a single module's detailed content, now section-based
 type ModuleContentState = {
   isLoading: boolean;
-  content: string | null;
-  recommendedYoutubeVideoQuery: string | null;
+  sections: GenerateModuleContentOutput['sections'] | null; // Array of sections
   error: string | null;
 };
 
 type LearningPathDisplayProps = {
-  path: GenerateLearningPathOutput;
+  path: LearningPathData; // This can be from AI generation or SavedLearningPath
   moduleContents?: { [moduleIndex: number]: ModuleContentState };
   onGenerateModuleContent?: (moduleIndex: number, moduleTitle: string, moduleDescription: string) => void;
 };
-
-// Helper function to parse Markdown content into sections based on H2 headings
-function parseMarkdownToSections(markdownContent: string | null): Array<{ title: string; bodyHtml: string }> {
-  if (!markdownContent?.trim()) return [];
-
-  const sections: Array<{ title: string; bodyHtml: string }> = [];
-  // Split by lines that start with "## " (H2 heading)
-  // The lookahead `(?=\n## )` ensures the delimiter `\n## ` is not consumed by the split
-  // and can be used to identify the start of the next section correctly.
-  // We first handle content that might appear before the first H2.
-  const contentParts = markdownContent.split(/\n(?=## )/);
-
-  for (let i = 0; i < contentParts.length; i++) {
-    let part = contentParts[i].trim();
-    if (!part) continue;
-
-    if (part.startsWith("## ")) {
-      // This part starts with an H2 heading
-      const newlineIndex = part.indexOf('\n');
-      let title: string;
-      let body: string;
-
-      if (newlineIndex !== -1) {
-        title = part.substring(3, newlineIndex).trim(); // Extract text after "## " up to newline
-        body = part.substring(newlineIndex + 1).trim(); // Content after the H2 heading line
-      } else {
-        // The H2 heading is the only line in this part
-        title = part.substring(3).trim();
-        body = "";
-      }
-      sections.push({ title, bodyHtml: body });
-    } else {
-      // This part does not start with an H2.
-      // It's either content before the first H2, or the entire content if no H2s exist.
-      sections.push({ title: "Overview", bodyHtml: part });
-    }
-  }
-  
-  return sections.filter(s => s.title || s.bodyHtml); // Remove any truly empty sections
-}
-
 
 export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModuleContent }: LearningPathDisplayProps) {
   if (!path || !path.modules || path.modules.length === 0) {
@@ -93,10 +51,8 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
       </h2>
       <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-4">
         {path.modules.map((module: LearningModule, index: number) => {
-          const currentModuleContent = moduleContents?.[index];
-          const hasDetailedTextContent = !!currentModuleContent?.content;
-          const hasYoutubeQuery = !!currentModuleContent?.recommendedYoutubeVideoQuery;
-          const sections = hasDetailedTextContent ? parseMarkdownToSections(currentModuleContent.content) : [];
+          const currentModuleDetailedContent = moduleContents?.[index];
+          const hasSections = !!currentModuleDetailedContent?.sections && currentModuleDetailedContent.sections.length > 0;
 
           return (
             <AccordionItem value={`module-${index}`} key={index} className="border bg-card rounded-lg shadow-md">
@@ -126,57 +82,55 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                     </p>
                   </div>
 
-                  {/* Detailed Content Section */}
-                  {(onGenerateModuleContent || hasDetailedTextContent || hasYoutubeQuery || currentModuleContent?.isLoading || currentModuleContent?.error) && (
+                  {/* Detailed Content Section - now section based */}
+                  {(onGenerateModuleContent || hasSections || currentModuleDetailedContent?.isLoading || currentModuleDetailedContent?.error) && (
                     <div className="mt-4 pt-4 border-t">
                       <h4 className="font-medium mb-2 text-lg">Detailed Content & Resources:</h4>
                       
-                      {currentModuleContent?.isLoading && (
+                      {currentModuleDetailedContent?.isLoading && (
                         <div className="flex items-center space-x-2 text-muted-foreground">
                           <Spinner className="h-5 w-5" />
                           <span>Generating content...</span>
                         </div>
                       )}
 
-                      {currentModuleContent?.error && !currentModuleContent.isLoading && (
+                      {currentModuleDetailedContent?.error && !currentModuleDetailedContent.isLoading && (
                         <Alert variant="destructive" className="mt-2">
                           <AlertCircleIcon className="h-4 w-4" />
                           <AlertTitle>Error Generating Content</AlertTitle>
-                          <AlertDescription>{currentModuleContent.error}</AlertDescription>
+                          <AlertDescription>{currentModuleDetailedContent.error}</AlertDescription>
                         </Alert>
                       )}
                       
-                      {/* YouTube Video Suggestion - Displayed First */}
-                      {hasYoutubeQuery && !currentModuleContent?.isLoading && (
-                        <div className="mb-4 p-4 border rounded-lg bg-secondary/30">
-                          <h5 className="font-medium mb-2 flex items-center text-md">
-                            <Youtube className="h-5 w-5 mr-2 text-red-600" />
-                            Recommended Video Search:
-                          </h5>
-                          <a
-                            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(currentModuleContent.recommendedYoutubeVideoQuery!)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline hover:text-accent transition-colors inline-flex items-center group"
-                          >
-                            {currentModuleContent.recommendedYoutubeVideoQuery}
-                            <ExternalLink className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
-                          </a>
-                        </div>
-                      )}
-
-                      {/* Detailed Textual Content as Sections in Cards */}
-                      {hasDetailedTextContent && sections.length > 0 && !currentModuleContent?.isLoading && (
+                      {/* Display sections if available */}
+                      {hasSections && !currentModuleDetailedContent?.isLoading && currentModuleDetailedContent?.sections && (
                         <div className="space-y-4 mt-4">
-                          {sections.map((section, secIdx) => (
-                            <Card key={secIdx} className="shadow-sm">
+                          {currentModuleDetailedContent.sections.map((section, secIdx) => (
+                            <Card key={secIdx} className="shadow-sm bg-secondary/10">
                               <CardHeader>
-                                <CardTitle className="text-lg">{section.title}</CardTitle>
+                                {section.recommendedYoutubeVideoQuery && (
+                                    <div className="mb-3">
+                                      <h5 className="font-medium mb-1 flex items-center text-sm">
+                                        <Youtube className="h-4 w-4 mr-2 text-red-500" />
+                                        Suggested Video for this Section:
+                                      </h5>
+                                      <a
+                                        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(section.recommendedYoutubeVideoQuery)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline hover:text-accent text-sm transition-colors inline-flex items-center group"
+                                      >
+                                        {section.recommendedYoutubeVideoQuery}
+                                        <ExternalLink className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
+                                      </a>
+                                    </div>
+                                  )}
+                                <CardTitle className="text-lg">{section.sectionTitle}</CardTitle>
                               </CardHeader>
                               <CardContent>
                                 <div 
                                   className="prose prose-sm max-w-none text-foreground dark:prose-invert" 
-                                  dangerouslySetInnerHTML={{ __html: section.bodyHtml }} 
+                                  dangerouslySetInnerHTML={{ __html: section.sectionContent.replace(/\n/g, '<br />') }} // Basic markdown to HTML for now
                                 />
                               </CardContent>
                             </Card>
@@ -185,7 +139,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                       )}
                       
                       {/* Button to generate content */}
-                      {onGenerateModuleContent && !currentModuleContent?.isLoading && !hasDetailedTextContent && !hasYoutubeQuery && !currentModuleContent?.error && (
+                      {onGenerateModuleContent && !currentModuleDetailedContent?.isLoading && !hasSections && !currentModuleDetailedContent?.error && (
                         <Button 
                           onClick={() => onGenerateModuleContent(index, module.title, module.description)}
                           variant="outline"
@@ -193,7 +147,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                           className="mt-3"
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
-                          Generate Detailed Content & Video Suggestion
+                          Generate Detailed Content & Video Suggestions
                         </Button>
                       )}
                     </div>
@@ -214,7 +168,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
         <CardContent>
           <p className="text-muted-foreground">
             This is your starting point! Use the suggested resources and time estimates to begin your learning journey.
-            {onGenerateModuleContent && " Generate detailed content and a video suggestion for each module to get a deeper understanding."}
+            {onGenerateModuleContent && " Generate detailed content, broken into sections with video suggestions, for each module to get a deeper understanding."}
             Remember to adapt the plan to your pace and dive deeper into topics that interest you most. Happy learning!
           </p>
         </CardContent>
@@ -241,5 +195,3 @@ function ExternalLink(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-
-    

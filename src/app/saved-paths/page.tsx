@@ -10,7 +10,7 @@ import {
   deleteLearningPath,
   updateLearningPathGoal,
   type SavedLearningPath, 
-  type SavedModuleDetail // This now expects recommendedYoutubeVideoQuery
+  type SavedModuleDetailedContent // Updated to expect section-based content
 } from "@/services/learningPathService";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { LearningPathDisplay } from "@/components/learning-path-display";
@@ -23,10 +23,10 @@ import { AlertCircle, BookCopy, LogIn, ListChecks } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 
+// Represents the state for a single module's detailed content, now section-based
 type ModuleContentState = {
   isLoading: boolean;
-  content: string | null;
-  recommendedYoutubeVideoQuery: string | null; // Updated
+  sections: GenerateModuleContentOutput['sections'] | null;
   error: string | null;
 };
 
@@ -53,20 +53,22 @@ export default function SavedPathsPage() {
         Object.entries(path.modulesDetails).forEach(([moduleIndexStr, detail]) => {
           const moduleIndex = parseInt(moduleIndexStr, 10);
           if (!isNaN(moduleIndex)) {
-            let videoQuery: string | null = null;
-            // Check for new field first, then fall back to old array field
-            if (typeof detail.recommendedYoutubeVideoQuery === 'string') {
-              videoQuery = detail.recommendedYoutubeVideoQuery;
-            } else if (Array.isArray((detail as any).youtubeSearchQueries) && (detail as any).youtubeSearchQueries.length > 0) {
-              videoQuery = (detail as any).youtubeSearchQueries[0]; // Use first from old array
+            // Check if 'sections' exists (new format)
+            if (detail.sections && Array.isArray(detail.sections)) {
+              initialContents[path.id][moduleIndex] = {
+                isLoading: false,
+                sections: detail.sections,
+                error: null,
+              };
+            } else {
+              // Handle old format (content as string, single video query) - this might need regeneration by user
+              // For now, we'll set it as empty, prompting regeneration for full features.
+              initialContents[path.id][moduleIndex] = {
+                isLoading: false,
+                sections: null, // Mark as null to show "Generate" button for old data
+                error: null,
+              };
             }
-
-            initialContents[path.id][moduleIndex] = {
-              isLoading: false,
-              content: detail.content || null,
-              recommendedYoutubeVideoQuery: videoQuery,
-              error: null,
-            };
           }
         });
       }
@@ -92,7 +94,6 @@ export default function SavedPathsPage() {
     }
   }, [user, toast, initializeModuleContents]);
 
-
   useEffect(() => {
     if (authLoading) {
       setIsLoading(true);
@@ -109,7 +110,7 @@ export default function SavedPathsPage() {
 
   const handleGenerateModuleContentForSavedPath = async (
     pathId: string,
-    learningGoal: string | undefined, // learningGoal is part of SavedLearningPath
+    learningGoal: string | undefined,
     moduleIndex: number,
     moduleTitle: string,
     moduleDescription: string
@@ -120,7 +121,7 @@ export default function SavedPathsPage() {
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, content: null, recommendedYoutubeVideoQuery: null, error: errorMessage }
+          [moduleIndex]: { isLoading: false, sections: null, error: errorMessage }
         }
       }));
       toast({
@@ -135,7 +136,7 @@ export default function SavedPathsPage() {
       ...prev,
       [pathId]: {
         ...(prev[pathId] || {}),
-        [moduleIndex]: { isLoading: true, content: null, recommendedYoutubeVideoQuery: null, error: null }
+        [moduleIndex]: { isLoading: true, sections: null, error: null }
       }
     }));
 
@@ -145,12 +146,9 @@ export default function SavedPathsPage() {
         moduleDescription,
         learningGoal,
       };
-      const result = await generateModuleContent(input);
+      const result = await generateModuleContent(input); // result.sections is the array
       
-      const newDetail: SavedModuleDetail = { // Ensure this matches the service's expectation
-        content: result.detailedContent,
-        recommendedYoutubeVideoQuery: result.recommendedYoutubeVideoQuery || undefined,
-      };
+      const newDetail: SavedModuleDetailedContent = { sections: result.sections };
 
       await updateLearningPathModuleDetail(pathId, moduleIndex, newDetail);
 
@@ -158,7 +156,7 @@ export default function SavedPathsPage() {
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, content: result.detailedContent, recommendedYoutubeVideoQuery: result.recommendedYoutubeVideoQuery || null, error: null }
+          [moduleIndex]: { isLoading: false, sections: result.sections, error: null }
         }
       }));
       toast({
@@ -172,7 +170,7 @@ export default function SavedPathsPage() {
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, content: null, recommendedYoutubeVideoQuery: null, error: errorMessage }
+          [moduleIndex]: { isLoading: false, sections: null, error: errorMessage }
         }
       }));
       toast({
@@ -184,7 +182,6 @@ export default function SavedPathsPage() {
   };
 
   const handleDeletePath = async (pathId: string) => {
-    // Confirmation is handled by SavedPathCardActions
     try {
       await deleteLearningPath(pathId);
       setSavedPaths(prevPaths => prevPaths.filter(p => p.id !== pathId));
@@ -212,7 +209,6 @@ export default function SavedPathsPage() {
       toast({ title: "Error Renaming Path", description: errorMessage, variant: "destructive"});
     }
   };
-
 
   if (authLoading || (isLoading && user && savedPaths.length === 0)) {
     return (
@@ -319,7 +315,7 @@ export default function SavedPathsPage() {
                 </CardHeader>
                 <CardContent>
                   <LearningPathDisplay
-                    path={path} // path here already includes modulesDetails from Firestore
+                    path={path}
                     moduleContents={moduleContents[path.id] || {}}
                     onGenerateModuleContent={(moduleIndex, moduleTitle, moduleDescription) => 
                       handleGenerateModuleContentForSavedPath(path.id, path.learningGoal, moduleIndex, moduleTitle, moduleDescription)
@@ -350,7 +346,6 @@ function Header() {
           </div>
           <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
         </Link>
-        {/* AuthButtons are part of the main layout on the homepage, but not explicitly needed for this page's header unless desired */}
       </div>
     </header>
   );

@@ -2,9 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
+import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput as LearningPathData } from "@/ai/flows/generate-learning-path";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
-import { saveLearningPath, type SavedModuleDetail } from "@/services/learningPathService";
+import { saveLearningPath, type SavedModuleDetailedContent } from "@/services/learningPathService";
 import { useAuth } from "@/context/auth-context";
 import { LearningInputForm } from "@/components/learning-input-form";
 import { LearningPathDisplay } from "@/components/learning-path-display";
@@ -16,10 +16,10 @@ import { AlertCircle, Save } from "lucide-react";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 
+// Represents the state for a single module's detailed content, now section-based
 type ModuleContentState = {
   isLoading: boolean;
-  content: string | null;
-  recommendedYoutubeVideoQuery: string | null; // Updated
+  sections: GenerateModuleContentOutput['sections'] | null; // Array of sections
   error: string | null;
 };
 
@@ -27,7 +27,7 @@ export default function PathAInderPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
-  const [learningPath, setLearningPath] = useState<GenerateLearningPathOutput | null>(null);
+  const [learningPath, setLearningPath] = useState<LearningPathData | null>(null);
   const [currentFormInput, setCurrentFormInput] = useState<GenerateLearningPathInput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
@@ -39,7 +39,7 @@ export default function PathAInderPage() {
     setError(null);
     setLearningPath(null);
     setCurrentFormInput(data);
-    setModuleContents({}); // Reset module contents for new plan
+    setModuleContents({});
     try {
       const result = await generateLearningPath(data);
       setLearningPath(result);
@@ -69,7 +69,7 @@ export default function PathAInderPage() {
 
     setModuleContents(prev => ({
       ...prev,
-      [moduleIndex]: { isLoading: true, content: null, recommendedYoutubeVideoQuery: null, error: null }
+      [moduleIndex]: { isLoading: true, sections: null, error: null }
     }));
 
     try {
@@ -78,10 +78,10 @@ export default function PathAInderPage() {
         moduleDescription,
         learningGoal: currentFormInput.learningGoal,
       };
-      const result = await generateModuleContent(input);
+      const result = await generateModuleContent(input); // result.sections is the array
       setModuleContents(prev => ({
         ...prev,
-        [moduleIndex]: { isLoading: false, content: result.detailedContent, recommendedYoutubeVideoQuery: result.recommendedYoutubeVideoQuery || null, error: null }
+        [moduleIndex]: { isLoading: false, sections: result.sections, error: null }
       }));
       toast({
         title: `Content for "${moduleTitle}"`,
@@ -92,7 +92,7 @@ export default function PathAInderPage() {
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
       setModuleContents(prev => ({
         ...prev,
-        [moduleIndex]: { isLoading: false, content: null, recommendedYoutubeVideoQuery: null, error: errorMessage }
+        [moduleIndex]: { isLoading: false, sections: null, error: errorMessage }
       }));
       toast({
         title: `Error for "${moduleTitle}"`,
@@ -101,7 +101,6 @@ export default function PathAInderPage() {
       });
     }
   };
-
 
   const handleSavePlan = async () => {
     if (!user || !learningPath || !currentFormInput) {
@@ -114,12 +113,11 @@ export default function PathAInderPage() {
     }
     setIsSavingPlan(true);
 
-    const modulesDetailsForDb: { [moduleIndex: string]: SavedModuleDetail } = {};
+    const modulesDetailsForDb: { [moduleIndex: string]: SavedModuleDetailedContent } = {};
     Object.entries(moduleContents).forEach(([index, detailState]) => {
-      if (detailState.content || detailState.recommendedYoutubeVideoQuery) { // Save if either content or query exists
+      if (detailState.sections && detailState.sections.length > 0) {
         modulesDetailsForDb[index] = {
-          content: detailState.content || "", // Ensure content is string
-          recommendedYoutubeVideoQuery: detailState.recommendedYoutubeVideoQuery || undefined, // Keep as undefined if null
+          sections: detailState.sections,
         };
       }
     });
@@ -133,7 +131,7 @@ export default function PathAInderPage() {
     } catch (e) {
       console.error("Error saving learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
-      setError(errorMessage); // This might be better as a toast too
+      setError(errorMessage);
       toast({
         title: "Error Saving Plan",
         description: errorMessage,
@@ -199,7 +197,6 @@ export default function PathAInderPage() {
         )}
 
         { (learningPath || isLoading || error) && <LearningInputForm onSubmit={handleGeneratePlan} isLoading={isLoading} /> }
-
 
         {isLoading && (
           <div className="flex flex-col justify-center items-center mt-12 space-y-4">

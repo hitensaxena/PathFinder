@@ -1,7 +1,8 @@
 
 'use server';
 /**
- * @fileOverview Generates detailed content for a specific learning module, including a recommended YouTube search query.
+ * @fileOverview Generates detailed content for a specific learning module,
+ * broken down into sections, each with a recommended YouTube search query.
  *
  * - generateModuleContent - A function that generates detailed content for a module.
  * - GenerateModuleContentInput - The input type for the generateModuleContent function.
@@ -18,9 +19,14 @@ const GenerateModuleContentInputSchema = z.object({
 });
 export type GenerateModuleContentInput = z.infer<typeof GenerateModuleContentInputSchema>;
 
+const ModuleSectionSchema = z.object({
+  sectionTitle: z.string().describe('A concise title for this content section.'),
+  sectionContent: z.string().describe('Detailed textual content for this section, formatted in Markdown.'),
+  recommendedYoutubeVideoQuery: z.string().describe('A single, highly specific YouTube search query for a video that best covers this specific section\'s content.'),
+});
+
 const GenerateModuleContentOutputSchema = z.object({
-  detailedContent: z.string().describe('Detailed content for the module, including key concepts, explanations, examples, and potentially relevant topics. This content should be formatted in markdown.'),
-  recommendedYoutubeVideoQuery: z.string().describe('A single, highly specific YouTube search query that would best lead to a comprehensive video covering the module content.'),
+  sections: z.array(ModuleSectionSchema).describe('An array of content sections for the module.'),
 });
 export type GenerateModuleContentOutput = z.infer<typeof GenerateModuleContentOutputSchema>;
 
@@ -40,18 +46,12 @@ Module Title: {{{moduleTitle}}}
 Module Description: {{{moduleDescription}}}
 
 Based on the module title, description, and the overall learning goal, please generate comprehensive content for this module.
-The content should:
-1.  Explain key concepts clearly.
-2.  Provide illustrative examples where appropriate.
-3.  Outline important sub-topics or areas to focus on.
-4.  Structure the information logically for learning.
-5.  Imagine you are summarizing and synthesizing information typically found in high-quality educational videos, articles, and tutorials on this subject.
-6.  The output should be formatted in Markdown.
+The content should be broken down into 2-4 logical sections. For each section:
+1.  Provide a "sectionTitle".
+2.  Provide "sectionContent": Explain key concepts clearly, provide illustrative examples where appropriate, outline important sub-topics, and structure the information logically for learning. This content should be formatted in Markdown. Imagine you are summarizing and synthesizing information typically found in high-quality educational videos, articles, and tutorials on this subject.
+3.  Provide "recommendedYoutubeVideoQuery": Suggest one highly specific and effective YouTube video search query that a learner could use to find the single best video resource to understand the key concepts of *this specific section*. This query should be very targeted to the section's content.
 
-Additionally, suggest one highly specific and effective YouTube video search query that a learner could use to find the single best video resource to understand the key concepts of this module. This query should be very targeted.
-
-Generate the detailed content for the "detailedContent" field.
-Return the single YouTube search query in the "recommendedYoutubeVideoQuery" field as a string.
+Return the output as a JSON object with a single top-level key "sections", which is an array of these section objects.
   `,
 });
 
@@ -66,4 +66,3 @@ const generateModuleContentFlow = ai.defineFlow(
     return output!;
   }
 );
-
