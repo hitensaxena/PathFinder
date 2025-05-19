@@ -24,10 +24,15 @@ import { Spinner } from "@/components/spinner";
 import { AlertCircle, ArrowLeft, Brain, Clock, Target, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+function SearchParamsWrapper() {
+  const searchParams = useSearchParams();
+  const goal = searchParams?.get("goal") || "";
+  return goal;
+}
+
 export default function GeneratePathPage() {
   const router = useRouter();
   // headers(); // Force dynamic rendering
-  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
   const { setGeneratedPath } = useLearningPath();
@@ -39,9 +44,13 @@ export default function GeneratePathPage() {
   const [weeklyTimeCommitment, setWeeklyTimeCommitment] = useState<string>("5");
 
   useEffect(() => {
-    const goal = searchParams?.get("goal") || "";
-    setLearningGoal(goal);
-  }, [searchParams]);
+    const goal = typeof window !== 'undefined' ? (
+      <Suspense fallback={null}>
+        <SearchParamsWrapper />
+      </Suspense>
+    ) : "";
+    setLearningGoal(goal as string);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -278,4 +287,4 @@ export default function GeneratePathPage() {
        )}
     </Suspense>
   );
-} 
+}
