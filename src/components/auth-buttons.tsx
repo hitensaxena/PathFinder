@@ -1,4 +1,3 @@
-
 "use client";
 
 import { GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
@@ -59,7 +58,7 @@ export function AuthButtons() {
         <>
           {user.displayName && <span className="mr-2 text-sm text-muted-foreground hidden sm:inline">Welcome, {user.displayName.split(" ")[0]}!</span>}
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/saved-paths">
+            <Link href="/library">
               <BookCopy className="mr-2 h-4 w-4" /> My Paths
             </Link>
           </Button>

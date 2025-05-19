@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLearningPath } from "@/context/learning-path-context";
-import { generateLearningPath, type GenerateLearningPathInput } from "@/ai/flows/generate-learning-path";
+import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
 import { useAuth } from "@/context/auth-context";
+import { saveLearningPath, type SavedModuleDetailedContent } from "@/services/learningPathService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,11 +25,21 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function GeneratePathPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
   const { setGeneratedPath } = useLearningPath();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [learningGoal, setLearningGoal] = useState("");
+  const [currentKnowledgeLevel, setCurrentKnowledgeLevel] = useState<"Beginner" | "Intermediate" | "Advanced">("Beginner");
+  const [preferredLearningStyle, setPreferredLearningStyle] = useState<"Videos" | "Articles" | "Interactive Exercises">("Videos");
+  const [weeklyTimeCommitment, setWeeklyTimeCommitment] = useState<string>("5");
+
+  useEffect(() => {
+    const goal = searchParams?.get("goal") || "";
+    setLearningGoal(goal);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -45,25 +56,43 @@ export default function GeneratePathPage() {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const data = {
+    const data: GenerateLearningPathInput = {
       learningGoal: formData.get('learningGoal') as string,
-      currentKnowledgeLevel: formData.get('currentKnowledgeLevel') as string,
-      preferredLearningStyle: formData.get('preferredLearningStyle') as string,
-      weeklyTimeCommitment: Number(formData.get('weeklyTimeCommitment')),
+      currentKnowledgeLevel,
+      preferredLearningStyle,
+      weeklyTimeCommitment: Number(weeklyTimeCommitment),
     };
     const additionalContext = formData.get('additionalContext') as string;
     if (additionalContext) {
       (data as any).additionalContext = additionalContext;
     }
 
+    let generatedPathResult: GenerateLearningPathOutput | null = null;
     try {
-      const result = await generateLearningPath(data);
-      setGeneratedPath(result, data);
-      toast({
-        title: "Learning Path Generated!",
-        description: "Redirecting to view your personalized learning path...",
-      });
+      generatedPathResult = await generateLearningPath(data);
+      setGeneratedPath(generatedPathResult, data);
+
+      // Auto-save the generated path
+      try {
+         const savedPathId = await saveLearningPath(user.uid, generatedPathResult, data.learningGoal);
+         toast({
+            title: "Learning Path Saved!",
+            description: "Your path has been automatically saved to your library.",
+         });
+         // Optionally, redirect to the saved path's detail page instead of view-plan
+         // router.push(`/library/${savedPathId}`);
+      } catch (saveError) {
+         console.error("Error auto-saving learning path:", saveError);
+         toast({
+            title: "Auto-Save Failed",
+            description: "Your path was generated, but could not be automatically saved.",
+            variant: "destructive",
+         });
+      }
+
+      // Redirect to view-plan (or library detail if uncommented above)
       router.push('/view-plan');
+
     } catch (e) {
       console.error("Error generating learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while generating your learning path. Please try again.";
@@ -117,6 +146,8 @@ export default function GeneratePathPage() {
                   placeholder="What do you want to learn?"
                   className="text-lg"
                   required
+                  value={learningGoal}
+                  onChange={(e) => setLearningGoal(e.target.value)}
                 />
               </CardContent>
             </Card>
@@ -132,7 +163,7 @@ export default function GeneratePathPage() {
                     Current Knowledge Level
                   </Label>
                 </div>
-                <Select name="currentKnowledgeLevel" required>
+                <Select name="currentKnowledgeLevel" required value={currentKnowledgeLevel} onValueChange={v => setCurrentKnowledgeLevel(v as "Beginner" | "Intermediate" | "Advanced")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select your current level" />
                   </SelectTrigger>
@@ -156,15 +187,15 @@ export default function GeneratePathPage() {
                     Weekly Time Commitment
                   </Label>
                 </div>
-                <Select name="weeklyTimeCommitment" required>
+                <Select name="weeklyTimeCommitment" required value={weeklyTimeCommitment} onValueChange={setWeeklyTimeCommitment}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select your time commitment" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={1}>1 hour/week</SelectItem>
-                    <SelectItem value={3}>3 hours/week</SelectItem>
-                    <SelectItem value={5}>5 hours/week</SelectItem>
-                    <SelectItem value={10}>10 hours/week</SelectItem>
+                    <SelectItem value="1">1 hour/week</SelectItem>
+                    <SelectItem value="3">3 hours/week</SelectItem>
+                    <SelectItem value="5">5 hours/week</SelectItem>
+                    <SelectItem value="10">10 hours/week</SelectItem>
                   </SelectContent>
                 </Select>
               </CardContent>
@@ -181,7 +212,7 @@ export default function GeneratePathPage() {
                     Preferred Learning Style
                   </Label>
                 </div>
-                <Select name="preferredLearningStyle" required>
+                <Select name="preferredLearningStyle" required value={preferredLearningStyle} onValueChange={v => setPreferredLearningStyle(v as "Videos" | "Articles" | "Interactive Exercises")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select your learning style" />
                   </SelectTrigger>

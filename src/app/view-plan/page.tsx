@@ -1,20 +1,30 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { useLearningPath } from "@/context/learning-path-context";
+import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { saveLearningPath, type SavedModuleDetailedContent, type SavedLearningPath } from "@/services/learningPathService";
 import { useAuth } from "@/context/auth-context";
 import { LearningPathDisplay } from "@/components/learning-path-display";
 import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Save, FilePlus, LogIn, Home, Sparkles, CheckCircle, BookCopy } from "lucide-react"; // Added BookCopy
-import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Save, FilePlus, LogIn, Home, Sparkles, CheckCircle, BookCopy, Brain, Clock, Target, Zap } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,7 +37,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-
+import Footer from '@/components/footer';
+import Header from '@/components/header';
 
 type SectionContent = {
   sectionTitle: string;
@@ -41,30 +52,30 @@ type ModuleContentState = {
   error: string | null;
 };
 
+type AllModuleContentsState = { [moduleIndex: string]: ModuleContentState };
+
 export default function ViewPlanPage() {
   const { user, loading: authLoading } = useAuth();
   const { pathData, formInput, clearGeneratedPath } = useLearningPath();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [moduleContents, setModuleContents] = useState<{ [moduleIndex: string]: ModuleContentState }>({});
-  const [isSavingPlan, setIsSavingPlan] = useState(false);
+  const [moduleContents, setModuleContents] = useState<AllModuleContentsState>({});
+  const [isCreatingPath, setIsCreatingPath] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showSaveSignInDialog, setShowSaveSignInDialog] = useState(false);
-  const [isPlanSaved, setIsPlanSaved] = useState(false);
-
 
   useEffect(() => {
-    if (!authLoading && (!pathData || !formInput)) {
+    if (!authLoading && (!pathData || !formInput) && !isCreatingPath) {
       const timer = setTimeout(() => {
-        if (!pathData || !formInput) { // Re-check inside timeout
+        if (!pathData || !formInput) {
             toast({ title: "No Plan Active", description: "Please generate a learning plan first.", variant: "destructive" });
             router.replace('/');
         }
-      }, 200); // Short delay to allow context to populate
+      }, 200);
       return () => clearTimeout(timer);
     }
-  }, [pathData, formInput, router, toast, authLoading]);
+  }, [pathData, formInput, router, toast, authLoading, isCreatingPath]);
 
   const handleGenerateModuleContent = async (moduleIndex: number, moduleTitle: string, moduleDescription: string) => {
     if (!formInput) {
@@ -126,48 +137,78 @@ export default function ViewPlanPage() {
     }
   };
 
-  const handleSavePlan = async () => {
+  const handleCreatePath = async () => {
     if (!user) {
-      setShowSaveSignInDialog(true);
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to create your learning path.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (!pathData || !formInput) {
       toast({
-        title: "Cannot Save Plan",
+        title: "Cannot Create Path",
         description: "Learning path data or original input is missing.",
         variant: "destructive",
       });
       return;
     }
-    setIsSavingPlan(true);
-    setPageError(null);
 
+    setIsCreatingPath(true);
+    setPageError(null);
     const modulesDetailsForDb: { [moduleIndex: string]: SavedModuleDetailedContent } = {};
-    Object.entries(moduleContents).forEach(([index, detailState]) => {
-      if (detailState.sections && detailState.sections.length > 0) {
-        modulesDetailsForDb[index] = { sections: detailState.sections };
-      }
-    });
 
     try {
-      await saveLearningPath(user.uid, pathData, formInput.learningGoal, modulesDetailsForDb);
+      for (let i = 0; i < pathData.modules.length; i++) {
+        const module = pathData.modules[i];
+        try {
+           const input: GenerateModuleContentInput = {
+              moduleTitle: module.title,
+              moduleDescription: module.description,
+              learningGoal: formInput.learningGoal,
+           };
+           setModuleContents(prev => ({
+              ...prev,
+              [String(i)]: { isLoading: true, sections: null, error: null }
+           }));
+           const result = await generateModuleContent(input);
+           modulesDetailsForDb[String(i)] = { sections: result.sections };
+            setModuleContents(prev => ({
+              ...prev,
+              [String(i)]: { isLoading: false, sections: result.sections, error: null }
+           }));
+        } catch (moduleError) {
+           console.error(`Error generating content for module ${i}:`, moduleError);
+           const errorMessage = moduleError instanceof Error ? moduleError.message : "Failed to generate content for this module.";
+             setModuleContents(prev => ({
+              ...prev,
+              [String(i)]: { isLoading: false, sections: null, error: errorMessage }
+           }));
+        }
+      }
+
+      const savedPathId = await saveLearningPath(user.uid, pathData, formInput.learningGoal, modulesDetailsForDb);
+
       toast({
-        title: "Plan Saved!",
-        description: "Your learning path has been saved. You can find it in 'My Paths'.",
+        title: "Learning Path Created!",
+        description: "Your personalized path has been generated and saved.",
       });
-      setIsPlanSaved(true); // Mark plan as saved
+
+      router.push(`/library/${savedPathId}`);
+
     } catch (e) {
-      console.error("Error saving learning path:", e);
-      const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
+      console.error("Error creating learning path:", e);
+      const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while creating your path.";
       setPageError(errorMessage);
       toast({
-        title: "Error Saving Plan",
+        title: "Error Creating Path",
         description: errorMessage,
         variant: "destructive",
       });
     } finally {
-      setIsSavingPlan(false);
+      setIsCreatingPath(false);
     }
   };
 
@@ -199,51 +240,16 @@ export default function ViewPlanPage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/40">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-10 md:py-16 max-w-5xl">
-        <Card className="shadow-2xl rounded-xl border-t-4 border-primary overflow-hidden">
-          <CardHeader className="p-6 md:p-8 bg-muted/50 border-b border-border">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex-grow">
-                <p className="text-sm font-medium text-primary mb-1">Your Personalized Learning Path</p>
-                <CardTitle className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
-                  {formInput.learningGoal}
-                </CardTitle>
-              </div>
-              <div className="flex items-center gap-3 w-full sm:w-auto flex-col sm:flex-row">
-                {!authLoading && user && !isPlanSaved && (
-                    <Button onClick={handleSavePlan} disabled={isSavingPlan} size="lg" className="w-full sm:w-auto rounded-lg shadow-md hover:shadow-primary/30">
-                      {isSavingPlan ? (
-                        <>
-                          <Spinner className="mr-2 h-5 w-5" /> Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="mr-2 h-5 w-5" /> Save This Plan
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  {!authLoading && user && isPlanSaved && (
-                     <Button disabled size="lg" className="w-full sm:w-auto rounded-lg bg-green-600 hover:bg-green-700">
-                        <CheckCircle className="mr-2 h-5 w-5" /> Plan Saved!
-                    </Button>
-                  )}
-                   {!authLoading && !user && (
-                    <Button onClick={() => setShowSaveSignInDialog(true)} size="lg" className="w-full sm:w-auto rounded-lg shadow-md">
-                        <LogIn className="mr-2 h-5 w-5" /> Sign In to Save
-                    </Button>
-                  )}
-                <Button
-                  onClick={handleCreateNewPlan}
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto rounded-lg shadow-md"
-                >
-                  <FilePlus className="mr-2 h-5 w-5" /> Create New Plan
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
+        <div className="text-center mb-12 md:mb-16">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-3 flex items-center justify-center">
+            <CheckCircle className="mr-4 h-10 w-10 text-green-500" /> Your Learning Plan is Ready!
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Review the AI-generated outline. Ready to build it out?
+          </p>
+        </div>
 
+        <Card className="shadow-xl overflow-hidden border-t-4 border-primary bg-card rounded-2xl">
           <CardContent className="p-6 md:p-8">
             {pageError && (
               <Alert variant="destructive" className="mb-6 shadow-md rounded-lg p-4">
@@ -257,8 +263,26 @@ export default function ViewPlanPage() {
               path={pathData}
               learningGoal={formInput.learningGoal}
               moduleContents={moduleContents}
-              onGenerateModuleContent={handleGenerateModuleContent}
             />
+
+            <div className="flex justify-center mt-12">
+              <Button
+                size="lg"
+                className="px-12 py-6 text-lg hover-lift hover-glow animate-slide-up"
+                onClick={handleCreatePath}
+                disabled={isCreatingPath || authLoading || !user}
+              >
+                {isCreatingPath ? (
+                  <>
+                    <Spinner className="mr-2 h-5 w-5" />
+                    Creating Path...
+                  </>
+                ) : (
+                   <><Sparkles className="mr-2 h-5 w-5" /> Create This Path</>
+                )}
+              </Button>
+            </div>
+
           </CardContent>
         </Card>
       </main>
@@ -266,9 +290,9 @@ export default function ViewPlanPage() {
       <AlertDialog open={showSaveSignInDialog} onOpenChange={setShowSaveSignInDialog}>
           <AlertDialogContent className="rounded-xl">
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-2xl">Sign In to Save</AlertDialogTitle>
+              <AlertDialogTitle className="text-2xl">Sign In to Create & Save</AlertDialogTitle>
               <AlertDialogDescription className="text-base">
-                Please sign in with your Google account to save your learning path.
+                You need to be signed in to create and save your personalized learning path.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-2">
@@ -282,44 +306,6 @@ export default function ViewPlanPage() {
 
       <Footer />
     </div>
-  );
-}
-
-
-function Header() {
-  return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between max-w-5xl px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center group">
-          <div className="bg-primary text-primary-foreground p-2.5 rounded-lg shadow-md transition-transform group-hover:scale-105">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-              <path d="M2 17l10 5 10-5"></path>
-              <path d="M2 12l10 5 10-5"></path>
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-primary ml-3 tracking-tight">PathAInder</h1>
-        </Link>
-        <Button variant="ghost" asChild className="rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10">
-            <Link href="/saved-paths">
-              <BookCopy className="mr-2 h-5 w-5" /> My Paths
-            </Link>
-        </Button>
-      </div>
-    </header>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="text-center py-8 border-t border-border/60 bg-background">
-       <div className="container mx-auto px-4 md:px-6">
-        <p className="text-md text-muted-foreground">
-          &copy; {new Date().getFullYear()} PathAInder. All rights reserved. 
-           Powered by <span className="font-semibold text-primary">AI</span> with <span className="text-accent">inspiration</span>.
-        </p>
-      </div>
-    </footer>
   );
 }
 
