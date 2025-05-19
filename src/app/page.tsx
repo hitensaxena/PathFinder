@@ -2,8 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { generateLearningPath } from "@/ai/flows/generate-learning-path";
-import type { GenerateLearningPathInput, GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
+import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
+import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { saveLearningPath } from "@/services/learningPathService";
 import { useAuth } from "@/context/auth-context";
 import { LearningInputForm } from "@/components/learning-input-form";
@@ -16,19 +16,29 @@ import { AlertCircle, Save } from "lucide-react";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 
+type ModuleContent = {
+  isLoading: boolean;
+  content: string | null;
+  error: string | null;
+};
+
 export default function PathAInderPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [learningPath, setLearningPath] = useState<GenerateLearningPathOutput | null>(null);
+  const [currentFormInput, setCurrentFormInput] = useState<GenerateLearningPathInput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [moduleContents, setModuleContents] = useState<{ [moduleIndex: number]: ModuleContent }>({});
 
   const handleGeneratePlan = async (data: GenerateLearningPathInput) => {
     setIsLoading(true);
     setError(null);
     setLearningPath(null);
+    setCurrentFormInput(data); // Store the input for later use
+    setModuleContents({}); // Reset module contents
     try {
       const result = await generateLearningPath(data);
       setLearningPath(result);
@@ -50,6 +60,48 @@ export default function PathAInderPage() {
     }
   };
 
+  const handleGenerateModuleContent = async (moduleIndex: number, moduleTitle: string, moduleDescription: string) => {
+    if (!currentFormInput) {
+      toast({ title: "Error", description: "Learning goal context is missing.", variant: "destructive" });
+      return;
+    }
+
+    setModuleContents(prev => ({
+      ...prev,
+      [moduleIndex]: { isLoading: true, content: null, error: null }
+    }));
+
+    try {
+      const input: GenerateModuleContentInput = {
+        moduleTitle,
+        moduleDescription,
+        learningGoal: currentFormInput.learningGoal,
+      };
+      const result = await generateModuleContent(input);
+      setModuleContents(prev => ({
+        ...prev,
+        [moduleIndex]: { isLoading: false, content: result.detailedContent, error: null }
+      }));
+      toast({
+        title: `Content for "${moduleTitle}"`,
+        description: "Detailed content generated successfully.",
+      });
+    } catch (e) {
+      console.error(`Error generating content for module ${moduleIndex}:`, e);
+      const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
+      setModuleContents(prev => ({
+        ...prev,
+        [moduleIndex]: { isLoading: false, content: null, error: errorMessage }
+      }));
+      toast({
+        title: `Error for "${moduleTitle}"`,
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+
   const handleSavePlan = async () => {
     if (!user || !learningPath) {
       toast({
@@ -61,6 +113,8 @@ export default function PathAInderPage() {
     }
     setIsSavingPlan(true);
     try {
+      // Note: moduleContents are not saved in this version. To save them,
+      // you'd need to augment the learningPath object or save them separately.
       await saveLearningPath(user.uid, learningPath);
       toast({
         title: "Plan Saved!",
@@ -69,7 +123,7 @@ export default function PathAInderPage() {
     } catch (e) {
       console.error("Error saving learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
-      setError(errorMessage); // Optionally display this error more prominently
+      setError(errorMessage);
       toast({
         title: "Error Saving Plan",
         description: errorMessage,
@@ -82,8 +136,9 @@ export default function PathAInderPage() {
   
   const resetState = () => {
     setLearningPath(null);
+    setCurrentFormInput(null);
+    setModuleContents({});
     setError(null);
-    // Form reset is handled by its own key or internal state if needed
   };
 
   return (
@@ -155,7 +210,11 @@ export default function PathAInderPage() {
 
         {learningPath && !isLoading && !error && (
           <>
-            <LearningPathDisplay path={learningPath} />
+            <LearningPathDisplay 
+              path={learningPath} 
+              moduleContents={moduleContents}
+              onGenerateModuleContent={handleGenerateModuleContent}
+            />
             <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
               <Button 
                 onClick={resetState}
