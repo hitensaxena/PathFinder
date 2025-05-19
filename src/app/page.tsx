@@ -1,63 +1,123 @@
+
 "use client";
 
 import { useState } from "react";
 import { generateLearningPath } from "@/ai/flows/generate-learning-path";
 import type { GenerateLearningPathInput, GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
+import { saveLearningPath } from "@/services/learningPathService";
+import { useAuth } from "@/context/auth-context";
 import { LearningInputForm } from "@/components/learning-input-form";
 import { LearningPathDisplay } from "@/components/learning-path-display";
+import { AuthButtons } from "@/components/auth-buttons";
 import { Spinner } from "@/components/spinner";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Save } from "lucide-react";
 import Image from 'next/image';
+import { useToast } from "@/hooks/use-toast";
 
 export default function PathAInderPage() {
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
   const [learningPath, setLearningPath] = useState<GenerateLearningPathOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGeneratePlan = async (data: GenerateLearningPathInput) => {
     setIsLoading(true);
     setError(null);
-    setLearningPath(null); 
+    setLearningPath(null);
     try {
-      // Add a small delay to simulate processing and show loading state
-      // await new Promise(resolve => setTimeout(resolve, 1500));
       const result = await generateLearningPath(data);
       setLearningPath(result);
+      toast({
+        title: "Learning Path Generated!",
+        description: "Your personalized learning path is ready.",
+      });
     } catch (e) {
       console.error("Error generating learning path:", e);
-      setError(e instanceof Error ? e.message : "An unexpected error occurred while generating your learning path. Please try again.");
+      const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while generating your learning path. Please try again.";
+      setError(errorMessage);
+      toast({
+        title: "Error Generating Path",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSavePlan = async () => {
+    if (!user || !learningPath) {
+      toast({
+        title: "Cannot Save Plan",
+        description: "You must be logged in and have a generated plan to save.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsSavingPlan(true);
+    try {
+      await saveLearningPath(user.uid, learningPath);
+      toast({
+        title: "Plan Saved!",
+        description: "Your learning path has been saved successfully.",
+      });
+    } catch (e) {
+      console.error("Error saving learning path:", e);
+      const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
+      setError(errorMessage); // Optionally display this error more prominently
+      toast({
+        title: "Error Saving Plan",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
+  
+  const resetState = () => {
+    setLearningPath(null);
+    setError(null);
+    // Form reset is handled by its own key or internal state if needed
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl">
-        <header className="text-center mb-10 md:mb-16">
-          <div className="flex justify-center items-center mb-4">
-            {/* Replace with a proper logo if available, or keep simple text */}
-            {/* For example, an inline SVG or a simple character logo */}
-            <div className="bg-primary text-primary-foreground p-3 rounded-lg shadow-md">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center justify-between max-w-4xl">
+          <div className="flex items-center">
+            <div className="bg-primary text-primary-foreground p-2 rounded-md shadow-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
                 <path d="M2 17l10 5 10-5"></path>
                 <path d="M2 12l10 5 10-5"></path>
               </svg>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-primary ml-3">PathAInder</h1>
+            <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
           </div>
+          <AuthButtons />
+        </div>
+      </header>
+
+      <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl">
+        <div className="text-center mb-10 md:mb-16">
+          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-2">
+            Chart Your Course to Knowledge
+          </h2>
           <p className="text-lg text-muted-foreground">
             Your AI Personalized Learning Path Planner
           </p>
-        </header>
+        </div>
 
         {!learningPath && !isLoading && !error && (
            <div className="grid md:grid-cols-2 gap-8 items-center mb-12">
-            <div>
-              <h2 className="text-2xl font-semibold mb-4 text-foreground">Chart Your Course to Knowledge</h2>
-              <p className="text-muted-foreground mb-6">
+            <div className="space-y-6">
+              <p className="text-muted-foreground">
                 Unlock your potential with a learning plan tailored just for you. Simply tell us your goals, and our AI will craft a step-by-step roadmap to guide your studies. Get started on your learning adventure today!
               </p>
               <Image 
@@ -96,17 +156,26 @@ export default function PathAInderPage() {
         {learningPath && !isLoading && !error && (
           <>
             <LearningPathDisplay path={learningPath} />
-            <div className="mt-8 text-center">
-              <button 
-                onClick={() => {
-                  setLearningPath(null);
-                  setError(null);
-                  // Optionally reset form if child component exposes a reset method or manage form reset via key prop
-                }}
-                className="text-primary hover:underline"
+            <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+              <Button 
+                onClick={resetState}
+                variant="outline"
               >
-                Create a new plan
-              </button>
+                Create a New Plan
+              </Button>
+              {user && !authLoading && (
+                <Button onClick={handleSavePlan} disabled={isSavingPlan}>
+                  {isSavingPlan ? (
+                    <>
+                      <Spinner className="mr-2 h-4 w-4" /> Saving Plan...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" /> Save Plan
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </>
         )}
