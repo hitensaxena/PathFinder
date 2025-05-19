@@ -1,34 +1,38 @@
 
 import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { GenerateLearningPathOutput } from '@/ai/flows/generate-learning-path';
+import type { GenerateLearningPathOutput, GenerateLearningPathInput } from '@/ai/flows/generate-learning-path';
 
 const LEARNING_PATHS_COLLECTION = 'learningPaths';
 
 export interface SavedLearningPath extends GenerateLearningPathOutput {
   id: string;
   userId: string;
-  createdAt: Timestamp; // Or Date, depending on how you retrieve/transform
+  learningGoal: string; // Added learningGoal
+  createdAt: Timestamp;
 }
 
-export async function saveLearningPath(userId: string, pathData: GenerateLearningPathOutput): Promise<string> {
+export async function saveLearningPath(userId: string, pathData: GenerateLearningPathOutput, learningGoal: string): Promise<string> {
   if (!userId) {
     throw new Error('User ID is required to save a learning path.');
   }
   if (!pathData || !pathData.modules || pathData.modules.length === 0) {
     throw new Error('Learning path data is invalid or empty.');
   }
+  if (!learningGoal) {
+    throw new Error('Learning goal is required to save a learning path.');
+  }
 
   try {
     const docRef = await addDoc(collection(db, LEARNING_PATHS_COLLECTION), {
       userId,
       ...pathData,
+      learningGoal, // Store learningGoal
       createdAt: serverTimestamp(),
     });
     return docRef.id;
   } catch (error) {
     console.error('Error saving learning path: ', error);
-    // It's good to throw a more specific error or handle it appropriately
     if (error instanceof Error) {
       throw new Error(`Failed to save learning path: ${error.message}`);
     }
@@ -49,7 +53,6 @@ export async function getUserLearningPaths(userId: string): Promise<SavedLearnin
     const querySnapshot = await getDocs(q);
     const paths: SavedLearningPath[] = [];
     querySnapshot.forEach((doc) => {
-      // Make sure to cast doc.data() to the correct type, including createdAt
       const data = doc.data() as Omit<SavedLearningPath, 'id'>;
       paths.push({ id: doc.id, ...data });
     });

@@ -16,7 +16,7 @@ import { AlertCircle, Save } from "lucide-react";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 
-type ModuleContent = {
+type ModuleContentState = {
   isLoading: boolean;
   content: string | null;
   youtubeSearchQueries: string[] | null;
@@ -32,14 +32,14 @@ export default function PathAInderPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [moduleContents, setModuleContents] = useState<{ [moduleIndex: number]: ModuleContent }>({});
+  const [moduleContents, setModuleContents] = useState<{ [moduleIndex: number]: ModuleContentState }>({});
 
   const handleGeneratePlan = async (data: GenerateLearningPathInput) => {
     setIsLoading(true);
     setError(null);
     setLearningPath(null);
-    setCurrentFormInput(data); // Store the input for later use
-    setModuleContents({}); // Reset module contents
+    setCurrentFormInput(data);
+    setModuleContents({});
     try {
       const result = await generateLearningPath(data);
       setLearningPath(result);
@@ -104,19 +104,17 @@ export default function PathAInderPage() {
 
 
   const handleSavePlan = async () => {
-    if (!user || !learningPath) {
+    if (!user || !learningPath || !currentFormInput) {
       toast({
         title: "Cannot Save Plan",
-        description: "You must be logged in and have a generated plan to save.",
+        description: "You must be logged in, have a generated plan, and the original input to save.",
         variant: "destructive",
       });
       return;
     }
     setIsSavingPlan(true);
     try {
-      // Note: moduleContents are not saved in this version. To save them,
-      // you'd need to augment the learningPath object or save them separately.
-      await saveLearningPath(user.uid, learningPath);
+      await saveLearningPath(user.uid, learningPath, currentFormInput.learningGoal);
       toast({
         title: "Plan Saved!",
         description: "Your learning path has been saved successfully.",
@@ -124,7 +122,7 @@ export default function PathAInderPage() {
     } catch (e) {
       console.error("Error saving learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
-      setError(errorMessage);
+      setError(errorMessage); // Consider if this error should be displayed in a toast instead or additionally
       toast({
         title: "Error Saving Plan",
         description: errorMessage,

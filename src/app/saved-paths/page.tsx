@@ -5,19 +5,37 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { getUserLearningPaths, type SavedLearningPath } from "@/services/learningPathService";
+import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { LearningPathDisplay } from "@/components/learning-path-display";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Spinner } from "@/components/spinner";
-import { AlertCircle, BookCopy, LogIn, ListChecks, LayoutDashboard } from "lucide-react";
+import { AlertCircle, BookCopy, LogIn, ListChecks } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
+import { useToast } from "@/hooks/use-toast";
+
+type ModuleContentState = {
+  isLoading: boolean;
+  content: string | null;
+  youtubeSearchQueries: string[] | null;
+  error: string | null;
+};
+
+// Path ID to ModuleIndex to ModuleContentState
+type AllModuleContentsState = {
+  [pathId: string]: {
+    [moduleIndex: number]: ModuleContentState;
+  };
+};
 
 export default function SavedPathsPage() {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [savedPaths, setSavedPaths] = useState<SavedLearningPath[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [moduleContents, setModuleContents] = useState<AllModuleContentsState>({});
 
   useEffect(() => {
     if (authLoading) {
@@ -26,7 +44,8 @@ export default function SavedPathsPage() {
     }
     if (!user) {
       setIsLoading(false);
-      setSavedPaths([]); // Clear paths if user logs out
+      setSavedPaths([]);
+      setModuleContents({});
       return;
     }
 
@@ -47,6 +66,58 @@ export default function SavedPathsPage() {
 
     fetchPaths();
   }, [user, authLoading]);
+
+  const handleGenerateModuleContentForSavedPath = async (
+    pathId: string,
+    learningGoal: string,
+    moduleIndex: number,
+    moduleTitle: string,
+    moduleDescription: string
+  ) => {
+    setModuleContents(prev => ({
+      ...prev,
+      [pathId]: {
+        ...(prev[pathId] || {}),
+        [moduleIndex]: { isLoading: true, content: null, youtubeSearchQueries: null, error: null }
+      }
+    }));
+
+    try {
+      const input: GenerateModuleContentInput = {
+        moduleTitle,
+        moduleDescription,
+        learningGoal,
+      };
+      const result = await generateModuleContent(input);
+      setModuleContents(prev => ({
+        ...prev,
+        [pathId]: {
+          ...(prev[pathId] || {}),
+          [moduleIndex]: { isLoading: false, content: result.detailedContent, youtubeSearchQueries: result.youtubeSearchQueries || null, error: null }
+        }
+      }));
+      toast({
+        title: `Content for "${moduleTitle}"`,
+        description: "Detailed content generated successfully.",
+      });
+    } catch (e) {
+      console.error(`Error generating content for module ${moduleIndex} in path ${pathId}:`, e);
+      const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
+      setModuleContents(prev => ({
+        ...prev,
+        [pathId]: {
+          ...(prev[pathId] || {}),
+          [moduleIndex]: { isLoading: false, content: null, youtubeSearchQueries: null, error: errorMessage }
+        }
+      }));
+      toast({
+        title: `Error for "${moduleTitle}"`,
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
 
   if (authLoading || isLoading) {
     return (
@@ -96,7 +167,7 @@ export default function SavedPathsPage() {
             <BookCopy className="mr-3 h-8 w-8 text-primary" /> Your Saved Learning Paths
           </h1>
           <p className="text-lg text-muted-foreground">
-            Revisit your personalized learning journeys.
+            Revisit your personalized learning journeys and generate detailed content.
           </p>
         </div>
 
@@ -133,7 +204,7 @@ export default function SavedPathsPage() {
               <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary">
                 <CardHeader>
                   <CardTitle className="text-2xl">
-                    Learning Path
+                    {path.learningGoal || "Learning Path"} {/* Display learning goal as title */}
                   </CardTitle>
                    {path.createdAt && (
                      <CardDescription>
@@ -142,7 +213,13 @@ export default function SavedPathsPage() {
                    )}
                 </CardHeader>
                 <CardContent>
-                  <LearningPathDisplay path={path} />
+                  <LearningPathDisplay
+                    path={path}
+                    moduleContents={moduleContents[path.id] || {}}
+                    onGenerateModuleContent={(moduleIndex, moduleTitle, moduleDescription) => 
+                      handleGenerateModuleContentForSavedPath(path.id, path.learningGoal, moduleIndex, moduleTitle, moduleDescription)
+                    }
+                  />
                 </CardContent>
               </Card>
             ))}
@@ -184,4 +261,3 @@ function Footer() {
     </footer>
   );
 }
-
