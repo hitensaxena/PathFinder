@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Spinner } from "@/components/spinner";
-import { AlertCircle, BookCopy, LogIn, ListChecks, Home, ExternalLink } from "lucide-react";
+import { AlertCircle, BookCopy, LogIn, ListChecks, Home, ExternalLink, Sparkles } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 
