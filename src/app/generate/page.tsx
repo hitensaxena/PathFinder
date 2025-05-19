@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function GeneratePathPage() {
   const router = useRouter();
-  headers(); // Force dynamic rendering
+  // headers(); // Force dynamic rendering
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
