@@ -7,22 +7,28 @@ const LEARNING_PATHS_COLLECTION = 'learningPaths';
 
 export interface SavedModuleDetail {
   content: string;
-  youtubeSearchQueries: string[];
+  // youtubeSearchQueries: string[]; // Old field, can be phased out or handled during migration/read
+  recommendedYoutubeVideoQuery?: string; // New field for single query
+}
+
+// This interface is used when fetching data. It might have old or new video query format.
+interface FetchedSavedModuleDetail extends SavedModuleDetail {
+    youtubeSearchQueries?: string[]; // For backward compatibility when reading
 }
 
 export interface SavedLearningPath extends GenerateLearningPathOutput {
   id: string;
   userId: string;
-  learningGoal: string; // Ensure this is always present for new paths
+  learningGoal: string;
   createdAt: Timestamp;
-  modulesDetails?: { [moduleIndex: string]: SavedModuleDetail };
+  modulesDetails?: { [moduleIndex: string]: FetchedSavedModuleDetail }; // Use Fetched type here
 }
 
 export async function saveLearningPath(
   userId: string,
   pathData: GenerateLearningPathOutput,
   learningGoal: string,
-  modulesDetails?: { [moduleIndex: string]: SavedModuleDetail }
+  modulesDetails?: { [moduleIndex: string]: SavedModuleDetail } // Expect new format for saving
 ): Promise<string> {
   if (!userId) {
     throw new Error('User ID is required to save a learning path.');
@@ -39,7 +45,7 @@ export async function saveLearningPath(
       userId,
       ...pathData,
       learningGoal,
-      modulesDetails: modulesDetails || {},
+      modulesDetails: modulesDetails || {}, // Should be in new format
       createdAt: serverTimestamp(),
     });
     return docRef.id;
@@ -65,12 +71,16 @@ export async function getUserLearningPaths(userId: string): Promise<SavedLearnin
     const querySnapshot = await getDocs(q);
     const paths: SavedLearningPath[] = [];
     querySnapshot.forEach((doc) => {
-      // learningGoal might be undefined for very old paths, ensure type compatibility
-      const data = doc.data() as Omit<SavedLearningPath, 'id' | 'learningGoal'> & { learningGoal?: string };
+      const data = doc.data() as Omit<SavedLearningPath, 'id' | 'learningGoal' | 'modulesDetails'> & { 
+        learningGoal?: string;
+        modulesDetails?: { [moduleIndex: string]: FetchedSavedModuleDetail }; // Expect potentially old format here
+      };
       paths.push({ 
         id: doc.id, 
         ...data,
-        learningGoal: data.learningGoal || "Untitled Learning Path" // Provide a fallback
+        modules: data.modules || [], // Ensure modules is always an array
+        learningGoal: data.learningGoal || "Untitled Learning Path",
+        modulesDetails: data.modulesDetails || {},
       });
     });
     return paths;
@@ -86,7 +96,7 @@ export async function getUserLearningPaths(userId: string): Promise<SavedLearnin
 export async function updateLearningPathModuleDetail(
   pathId: string,
   moduleIndex: number,
-  detail: SavedModuleDetail
+  detail: SavedModuleDetail // Expect new format for updating
 ): Promise<void> {
   if (!pathId) throw new Error('Path ID is required.');
   if (moduleIndex < 0) throw new Error('Module index is invalid.');
@@ -94,8 +104,13 @@ export async function updateLearningPathModuleDetail(
 
   const pathRef = doc(db, LEARNING_PATHS_COLLECTION, pathId);
   try {
+    // Ensure we save only the new field, removing the old one if it somehow exists in `detail`
+    const detailToSave: SavedModuleDetail = {
+        content: detail.content,
+        recommendedYoutubeVideoQuery: detail.recommendedYoutubeVideoQuery,
+    };
     await updateDoc(pathRef, {
-      [`modulesDetails.${String(moduleIndex)}`]: detail,
+      [`modulesDetails.${String(moduleIndex)}`]: detailToSave,
     });
   } catch (error) {
     console.error(`Error updating module detail for path ${pathId}, module ${moduleIndex}: `, error);

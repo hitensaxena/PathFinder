@@ -20,7 +20,7 @@ type LearningModule = GenerateLearningPathOutput['modules'][number];
 type ModuleContentState = {
   isLoading: boolean;
   content: string | null;
-  youtubeSearchQueries: string[] | null;
+  recommendedYoutubeVideoQuery: string | null; // Updated
   error: string | null;
 };
 
@@ -45,13 +45,15 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
   }
 
   return (
-    <div className="mt-6"> {/* Reduced top margin from mt-12 to mt-6 */}
-      <h2 className="text-2xl font-semibold mb-4 text-center text-primary"> {/* Reduced font size and margin */}
+    <div className="mt-6">
+      <h2 className="text-2xl font-semibold mb-4 text-center text-primary">
         Path Modules
       </h2>
       <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-4">
         {path.modules.map((module: LearningModule, index: number) => {
           const currentModuleContent = moduleContents[index];
+          const hasDetailedInfo = currentModuleContent?.content || currentModuleContent?.recommendedYoutubeVideoQuery;
+
           return (
             <AccordionItem value={`module-${index}`} key={index} className="border bg-card rounded-lg shadow-md">
               <AccordionTrigger className="p-6 hover:no-underline">
@@ -81,7 +83,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                   </div>
 
                   {/* Detailed Content Section */}
-                  {(onGenerateModuleContent || (currentModuleContent && (currentModuleContent.content || currentModuleContent.error || currentModuleContent.youtubeSearchQueries))) && (
+                  {(onGenerateModuleContent || hasDetailedInfo || currentModuleContent?.isLoading || currentModuleContent?.error) && (
                     <div className="mt-4 pt-4 border-t">
                       <h4 className="font-medium mb-2 text-lg">Detailed Content & Resources:</h4>
                       
@@ -100,27 +102,25 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                         </Alert>
                       )}
                       
-                      {/* YouTube Video Suggestions - Displayed First */}
-                      {currentModuleContent?.youtubeSearchQueries && currentModuleContent.youtubeSearchQueries.length > 0 && !currentModuleContent.isLoading && (
-                        <div className="mb-4"> {/* Added margin-bottom */}
-                          <h5 className="font-medium mb-2 flex items-center text-md"> {/* Adjusted margin and text size */}
+                      {/* YouTube Video Suggestion - Displayed First */}
+                      {currentModuleContent?.recommendedYoutubeVideoQuery && !currentModuleContent.isLoading && (
+                        <div className="mb-4">
+                          <h5 className="font-medium mb-2 flex items-center text-md">
                             <Youtube className="h-5 w-5 mr-2 text-red-600" />
-                            Suggested Video Searches:
+                            Recommended Video Search:
                           </h5>
                           <ul className="list-disc list-inside space-y-1 pl-1">
-                            {currentModuleContent.youtubeSearchQueries.map((query, qIndex) => (
-                              <li key={qIndex} className="text-sm">
+                              <li className="text-sm">
                                 <a
-                                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
+                                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(currentModuleContent.recommendedYoutubeVideoQuery)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-primary hover:underline hover:text-accent transition-colors inline-flex items-center group"
                                 >
-                                  {query}
+                                  {currentModuleContent.recommendedYoutubeVideoQuery}
                                   <ExternalLink className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
                                 </a>
                               </li>
-                            ))}
                           </ul>
                         </div>
                       )}
@@ -129,20 +129,20 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                       {currentModuleContent?.content && !currentModuleContent.isLoading && (
                         <div 
                           className="prose prose-sm max-w-none text-foreground dark:prose-invert" 
-                          dangerouslySetInnerHTML={{ __html: currentModuleContent.content }} // Render raw HTML/Markdown
+                          dangerouslySetInnerHTML={{ __html: currentModuleContent.content }} 
                         />
                       )}
 
                       {/* Button to generate content */}
-                      {onGenerateModuleContent && !currentModuleContent?.isLoading && (!currentModuleContent?.content && !currentModuleContent?.youtubeSearchQueries) && !currentModuleContent?.error && (
+                      {onGenerateModuleContent && !currentModuleContent?.isLoading && !hasDetailedInfo && !currentModuleContent?.error && (
                         <Button 
                           onClick={() => onGenerateModuleContent(index, module.title, module.description)}
                           variant="outline"
                           size="sm"
-                          className="mt-3" // Adjusted margin
+                          className="mt-3"
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
-                          Generate Detailed Content & Video Suggestions
+                          Generate Detailed Content & Video Suggestion
                         </Button>
                       )}
                     </div>
@@ -163,7 +163,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
         <CardContent>
           <p className="text-muted-foreground">
             This is your starting point! Use the suggested resources and time estimates to begin your learning journey.
-            {onGenerateModuleContent && " Generate detailed content and video suggestions for each module to get a deeper understanding."}
+            {onGenerateModuleContent && " Generate detailed content and a video suggestion for each module to get a deeper understanding."}
             Remember to adapt the plan to your pace and dive deeper into topics that interest you most. Happy learning!
           </p>
         </CardContent>
@@ -172,7 +172,6 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
   );
 }
 
-// Simple ExternalLink icon component
 function ExternalLink(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -191,4 +190,3 @@ function ExternalLink(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-

@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 type ModuleContentState = {
   isLoading: boolean;
   content: string | null;
-  youtubeSearchQueries: string[] | null;
+  recommendedYoutubeVideoQuery: string | null; // Updated
   error: string | null;
 };
 
@@ -69,7 +69,7 @@ export default function PathAInderPage() {
 
     setModuleContents(prev => ({
       ...prev,
-      [moduleIndex]: { isLoading: true, content: null, youtubeSearchQueries: null, error: null }
+      [moduleIndex]: { isLoading: true, content: null, recommendedYoutubeVideoQuery: null, error: null }
     }));
 
     try {
@@ -81,7 +81,7 @@ export default function PathAInderPage() {
       const result = await generateModuleContent(input);
       setModuleContents(prev => ({
         ...prev,
-        [moduleIndex]: { isLoading: false, content: result.detailedContent, youtubeSearchQueries: result.youtubeSearchQueries || null, error: null }
+        [moduleIndex]: { isLoading: false, content: result.detailedContent, recommendedYoutubeVideoQuery: result.recommendedYoutubeVideoQuery || null, error: null }
       }));
       toast({
         title: `Content for "${moduleTitle}"`,
@@ -92,7 +92,7 @@ export default function PathAInderPage() {
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
       setModuleContents(prev => ({
         ...prev,
-        [moduleIndex]: { isLoading: false, content: null, youtubeSearchQueries: null, error: errorMessage }
+        [moduleIndex]: { isLoading: false, content: null, recommendedYoutubeVideoQuery: null, error: errorMessage }
       }));
       toast({
         title: `Error for "${moduleTitle}"`,
@@ -116,10 +116,10 @@ export default function PathAInderPage() {
 
     const modulesDetailsForDb: { [moduleIndex: string]: SavedModuleDetail } = {};
     Object.entries(moduleContents).forEach(([index, detailState]) => {
-      if (detailState.content && detailState.youtubeSearchQueries) {
+      if (detailState.content || detailState.recommendedYoutubeVideoQuery) { // Save if either content or query exists
         modulesDetailsForDb[index] = {
-          content: detailState.content,
-          youtubeSearchQueries: detailState.youtubeSearchQueries,
+          content: detailState.content || "", // Ensure content is string
+          recommendedYoutubeVideoQuery: detailState.recommendedYoutubeVideoQuery || undefined, // Keep as undefined if null
         };
       }
     });
@@ -133,7 +133,7 @@ export default function PathAInderPage() {
     } catch (e) {
       console.error("Error saving learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
-      setError(errorMessage);
+      setError(errorMessage); // This might be better as a toast too
       toast({
         title: "Error Saving Plan",
         description: errorMessage,

@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview Generates detailed content for a specific learning module, including YouTube search queries.
+ * @fileOverview Generates detailed content for a specific learning module, including a recommended YouTube search query.
  *
  * - generateModuleContent - A function that generates detailed content for a module.
  * - GenerateModuleContentInput - The input type for the generateModuleContent function.
@@ -20,7 +20,7 @@ export type GenerateModuleContentInput = z.infer<typeof GenerateModuleContentInp
 
 const GenerateModuleContentOutputSchema = z.object({
   detailedContent: z.string().describe('Detailed content for the module, including key concepts, explanations, examples, and potentially relevant topics. This content should be formatted in markdown.'),
-  youtubeSearchQueries: z.array(z.string()).describe('An array of 1-2 suggested YouTube video search queries relevant to the module content. These should be concise and effective search terms.'),
+  recommendedYoutubeVideoQuery: z.string().describe('A single, highly specific YouTube search query that would best lead to a comprehensive video covering the module content.'),
 });
 export type GenerateModuleContentOutput = z.infer<typeof GenerateModuleContentOutputSchema>;
 
@@ -48,10 +48,10 @@ The content should:
 5.  Imagine you are summarizing and synthesizing information typically found in high-quality educational videos, articles, and tutorials on this subject.
 6.  The output should be formatted in Markdown.
 
-Additionally, suggest 1-2 concise and effective YouTube video search queries that a learner could use to find relevant videos for this module. These queries should be distinct and aim to cover different facets or approaches to the module's topic if possible.
+Additionally, suggest one highly specific and effective YouTube video search query that a learner could use to find the single best video resource to understand the key concepts of this module. This query should be very targeted.
 
 Generate the detailed content for the "detailedContent" field.
-Return the YouTube search queries in the "youtubeSearchQueries" field as an array of strings.
+Return the single YouTube search query in the "recommendedYoutubeVideoQuery" field as a string.
   `,
 });
 

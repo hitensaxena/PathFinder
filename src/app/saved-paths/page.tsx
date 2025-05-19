@@ -10,7 +10,7 @@ import {
   deleteLearningPath,
   updateLearningPathGoal,
   type SavedLearningPath, 
-  type SavedModuleDetail 
+  type SavedModuleDetail // This now expects recommendedYoutubeVideoQuery
 } from "@/services/learningPathService";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { LearningPathDisplay } from "@/components/learning-path-display";
@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 type ModuleContentState = {
   isLoading: boolean;
   content: string | null;
-  youtubeSearchQueries: string[] | null;
+  recommendedYoutubeVideoQuery: string | null; // Updated
   error: string | null;
 };
 
@@ -45,6 +45,35 @@ export default function SavedPathsPage() {
   const [error, setError] = useState<string | null>(null);
   const [moduleContents, setModuleContents] = useState<AllModuleContentsState>({});
 
+  const initializeModuleContents = useCallback((paths: SavedLearningPath[]) => {
+    const initialContents: AllModuleContentsState = {};
+    paths.forEach(path => {
+      initialContents[path.id] = {};
+      if (path.modulesDetails) {
+        Object.entries(path.modulesDetails).forEach(([moduleIndexStr, detail]) => {
+          const moduleIndex = parseInt(moduleIndexStr, 10);
+          if (!isNaN(moduleIndex)) {
+            let videoQuery: string | null = null;
+            // Check for new field first, then fall back to old array field
+            if (typeof detail.recommendedYoutubeVideoQuery === 'string') {
+              videoQuery = detail.recommendedYoutubeVideoQuery;
+            } else if (Array.isArray((detail as any).youtubeSearchQueries) && (detail as any).youtubeSearchQueries.length > 0) {
+              videoQuery = (detail as any).youtubeSearchQueries[0]; // Use first from old array
+            }
+
+            initialContents[path.id][moduleIndex] = {
+              isLoading: false,
+              content: detail.content || null,
+              recommendedYoutubeVideoQuery: videoQuery,
+              error: null,
+            };
+          }
+        });
+      }
+    });
+    setModuleContents(initialContents);
+  }, []);
+
   const fetchPaths = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
@@ -61,28 +90,7 @@ export default function SavedPathsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, toast]); // initializeModuleContents will be defined below or made stable
-
-  const initializeModuleContents = useCallback((paths: SavedLearningPath[]) => {
-    const initialContents: AllModuleContentsState = {};
-    paths.forEach(path => {
-      initialContents[path.id] = {};
-      if (path.modulesDetails) {
-        Object.entries(path.modulesDetails).forEach(([moduleIndexStr, detail]) => {
-          const moduleIndex = parseInt(moduleIndexStr, 10);
-          if (!isNaN(moduleIndex)) {
-            initialContents[path.id][moduleIndex] = {
-              isLoading: false,
-              content: detail.content,
-              youtubeSearchQueries: detail.youtubeSearchQueries,
-              error: null,
-            };
-          }
-        });
-      }
-    });
-    setModuleContents(initialContents);
-  }, []);
+  }, [user, toast, initializeModuleContents]);
 
 
   useEffect(() => {
@@ -101,7 +109,7 @@ export default function SavedPathsPage() {
 
   const handleGenerateModuleContentForSavedPath = async (
     pathId: string,
-    learningGoal: string | undefined,
+    learningGoal: string | undefined, // learningGoal is part of SavedLearningPath
     moduleIndex: number,
     moduleTitle: string,
     moduleDescription: string
@@ -112,7 +120,7 @@ export default function SavedPathsPage() {
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, content: null, youtubeSearchQueries: null, error: errorMessage }
+          [moduleIndex]: { isLoading: false, content: null, recommendedYoutubeVideoQuery: null, error: errorMessage }
         }
       }));
       toast({
@@ -127,7 +135,7 @@ export default function SavedPathsPage() {
       ...prev,
       [pathId]: {
         ...(prev[pathId] || {}),
-        [moduleIndex]: { isLoading: true, content: null, youtubeSearchQueries: null, error: null }
+        [moduleIndex]: { isLoading: true, content: null, recommendedYoutubeVideoQuery: null, error: null }
       }
     }));
 
@@ -139,9 +147,9 @@ export default function SavedPathsPage() {
       };
       const result = await generateModuleContent(input);
       
-      const newDetail: SavedModuleDetail = {
+      const newDetail: SavedModuleDetail = { // Ensure this matches the service's expectation
         content: result.detailedContent,
-        youtubeSearchQueries: result.youtubeSearchQueries || [],
+        recommendedYoutubeVideoQuery: result.recommendedYoutubeVideoQuery || undefined,
       };
 
       await updateLearningPathModuleDetail(pathId, moduleIndex, newDetail);
@@ -150,7 +158,7 @@ export default function SavedPathsPage() {
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, content: result.detailedContent, youtubeSearchQueries: result.youtubeSearchQueries || null, error: null }
+          [moduleIndex]: { isLoading: false, content: result.detailedContent, recommendedYoutubeVideoQuery: result.recommendedYoutubeVideoQuery || null, error: null }
         }
       }));
       toast({
@@ -164,7 +172,7 @@ export default function SavedPathsPage() {
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, content: null, youtubeSearchQueries: null, error: errorMessage }
+          [moduleIndex]: { isLoading: false, content: null, recommendedYoutubeVideoQuery: null, error: errorMessage }
         }
       }));
       toast({
@@ -179,34 +187,34 @@ export default function SavedPathsPage() {
     // Confirmation is handled by SavedPathCardActions
     try {
       await deleteLearningPath(pathId);
-      // Optimistically update UI or re-fetch
       setSavedPaths(prevPaths => prevPaths.filter(p => p.id !== pathId));
-      // Remove module contents for the deleted path
       setModuleContents(prevContents => {
         const newContents = {...prevContents};
         delete newContents[pathId];
         return newContents;
       });
+      toast({ title: "Path Deleted", description: "The learning path has been successfully deleted."});
     } catch (error) {
-      // Error toast is handled by SavedPathCardActions, but log here if needed
       console.error("Error in handleDeletePath callback from page:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete path.";
+      toast({ title: "Error Deleting Path", description: errorMessage, variant: "destructive"});
     }
   };
 
   const handleRenamePath = async (pathId: string, newGoal: string) => {
-    // Confirmation/input is handled by SavedPathCardActions
     try {
       await updateLearningPathGoal(pathId, newGoal);
-      // Optimistically update UI or re-fetch
       setSavedPaths(prevPaths => prevPaths.map(p => p.id === pathId ? {...p, learningGoal: newGoal} : p));
+      toast({ title: "Path Renamed", description: "The learning path has been successfully renamed."});
     } catch (error) {
-      // Error toast is handled by SavedPathCardActions, but log here if needed
       console.error("Error in handleRenamePath callback from page:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to rename path.";
+      toast({ title: "Error Renaming Path", description: errorMessage, variant: "destructive"});
     }
   };
 
 
-  if (authLoading || (isLoading && savedPaths.length === 0)) { // Show loading if auth is loading OR initial data fetch is happening
+  if (authLoading || (isLoading && user && savedPaths.length === 0)) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -219,7 +227,7 @@ export default function SavedPathsPage() {
     );
   }
 
-  if (!user) {
+  if (!user && !authLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -266,7 +274,7 @@ export default function SavedPathsPage() {
           </Alert>
         )}
 
-        {!isLoading && !error && savedPaths.length === 0 && (
+        {!isLoading && !error && user && savedPaths.length === 0 && (
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -285,7 +293,7 @@ export default function SavedPathsPage() {
           </Card>
         )}
 
-        {!error && savedPaths.length > 0 && ( // No need for !isLoading here if we handle empty state correctly
+        {!error && user && savedPaths.length > 0 && (
           <div className="space-y-12">
             {savedPaths.map((path) => (
               <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary">
@@ -311,7 +319,7 @@ export default function SavedPathsPage() {
                 </CardHeader>
                 <CardContent>
                   <LearningPathDisplay
-                    path={path}
+                    path={path} // path here already includes modulesDetails from Firestore
                     moduleContents={moduleContents[path.id] || {}}
                     onGenerateModuleContent={(moduleIndex, moduleTitle, moduleDescription) => 
                       handleGenerateModuleContentForSavedPath(path.id, path.learningGoal, moduleIndex, moduleTitle, moduleDescription)
@@ -328,7 +336,6 @@ export default function SavedPathsPage() {
   );
 }
 
-// Header and Footer components remain the same
 function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -343,7 +350,7 @@ function Header() {
           </div>
           <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
         </Link>
-        {/* AuthButtons could be imported here if needed, or ensure it's on the main page layout */}
+        {/* AuthButtons are part of the main layout on the homepage, but not explicitly needed for this page's header unless desired */}
       </div>
     </header>
   );
