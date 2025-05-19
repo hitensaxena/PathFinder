@@ -9,6 +9,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter, // Added for potential future use
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -20,7 +21,7 @@ type LearningModule = GenerateLearningPathOutput['modules'][number];
 type ModuleContentState = {
   isLoading: boolean;
   content: string | null;
-  recommendedYoutubeVideoQuery: string | null; // Updated
+  recommendedYoutubeVideoQuery: string | null;
   error: string | null;
 };
 
@@ -29,6 +30,47 @@ type LearningPathDisplayProps = {
   moduleContents?: { [moduleIndex: number]: ModuleContentState };
   onGenerateModuleContent?: (moduleIndex: number, moduleTitle: string, moduleDescription: string) => void;
 };
+
+// Helper function to parse Markdown content into sections based on H2 headings
+function parseMarkdownToSections(markdownContent: string | null): Array<{ title: string; bodyHtml: string }> {
+  if (!markdownContent?.trim()) return [];
+
+  const sections: Array<{ title: string; bodyHtml: string }> = [];
+  // Split by lines that start with "## " (H2 heading)
+  // The lookahead `(?=\n## )` ensures the delimiter `\n## ` is not consumed by the split
+  // and can be used to identify the start of the next section correctly.
+  // We first handle content that might appear before the first H2.
+  const contentParts = markdownContent.split(/\n(?=## )/);
+
+  for (let i = 0; i < contentParts.length; i++) {
+    let part = contentParts[i].trim();
+    if (!part) continue;
+
+    if (part.startsWith("## ")) {
+      // This part starts with an H2 heading
+      const newlineIndex = part.indexOf('\n');
+      let title: string;
+      let body: string;
+
+      if (newlineIndex !== -1) {
+        title = part.substring(3, newlineIndex).trim(); // Extract text after "## " up to newline
+        body = part.substring(newlineIndex + 1).trim(); // Content after the H2 heading line
+      } else {
+        // The H2 heading is the only line in this part
+        title = part.substring(3).trim();
+        body = "";
+      }
+      sections.push({ title, bodyHtml: body });
+    } else {
+      // This part does not start with an H2.
+      // It's either content before the first H2, or the entire content if no H2s exist.
+      sections.push({ title: "Overview", bodyHtml: part });
+    }
+  }
+  
+  return sections.filter(s => s.title || s.bodyHtml); // Remove any truly empty sections
+}
+
 
 export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModuleContent }: LearningPathDisplayProps) {
   if (!path || !path.modules || path.modules.length === 0) {
@@ -51,8 +93,10 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
       </h2>
       <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-4">
         {path.modules.map((module: LearningModule, index: number) => {
-          const currentModuleContent = moduleContents[index];
-          const hasDetailedInfo = currentModuleContent?.content || currentModuleContent?.recommendedYoutubeVideoQuery;
+          const currentModuleContent = moduleContents?.[index];
+          const hasDetailedTextContent = !!currentModuleContent?.content;
+          const hasYoutubeQuery = !!currentModuleContent?.recommendedYoutubeVideoQuery;
+          const sections = hasDetailedTextContent ? parseMarkdownToSections(currentModuleContent.content) : [];
 
           return (
             <AccordionItem value={`module-${index}`} key={index} className="border bg-card rounded-lg shadow-md">
@@ -83,7 +127,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                   </div>
 
                   {/* Detailed Content Section */}
-                  {(onGenerateModuleContent || hasDetailedInfo || currentModuleContent?.isLoading || currentModuleContent?.error) && (
+                  {(onGenerateModuleContent || hasDetailedTextContent || hasYoutubeQuery || currentModuleContent?.isLoading || currentModuleContent?.error) && (
                     <div className="mt-4 pt-4 border-t">
                       <h4 className="font-medium mb-2 text-lg">Detailed Content & Resources:</h4>
                       
@@ -103,38 +147,45 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                       )}
                       
                       {/* YouTube Video Suggestion - Displayed First */}
-                      {currentModuleContent?.recommendedYoutubeVideoQuery && !currentModuleContent.isLoading && (
-                        <div className="mb-4">
+                      {hasYoutubeQuery && !currentModuleContent?.isLoading && (
+                        <div className="mb-4 p-4 border rounded-lg bg-secondary/30">
                           <h5 className="font-medium mb-2 flex items-center text-md">
                             <Youtube className="h-5 w-5 mr-2 text-red-600" />
                             Recommended Video Search:
                           </h5>
-                          <ul className="list-disc list-inside space-y-1 pl-1">
-                              <li className="text-sm">
-                                <a
-                                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(currentModuleContent.recommendedYoutubeVideoQuery)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary hover:underline hover:text-accent transition-colors inline-flex items-center group"
-                                >
-                                  {currentModuleContent.recommendedYoutubeVideoQuery}
-                                  <ExternalLink className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
-                                </a>
-                              </li>
-                          </ul>
+                          <a
+                            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(currentModuleContent.recommendedYoutubeVideoQuery!)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline hover:text-accent transition-colors inline-flex items-center group"
+                          >
+                            {currentModuleContent.recommendedYoutubeVideoQuery}
+                            <ExternalLink className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
+                          </a>
                         </div>
                       )}
 
-                      {/* Detailed Textual Content - Displayed Second */}
-                      {currentModuleContent?.content && !currentModuleContent.isLoading && (
-                        <div 
-                          className="prose prose-sm max-w-none text-foreground dark:prose-invert" 
-                          dangerouslySetInnerHTML={{ __html: currentModuleContent.content }} 
-                        />
+                      {/* Detailed Textual Content as Sections in Cards */}
+                      {hasDetailedTextContent && sections.length > 0 && !currentModuleContent?.isLoading && (
+                        <div className="space-y-4 mt-4">
+                          {sections.map((section, secIdx) => (
+                            <Card key={secIdx} className="shadow-sm">
+                              <CardHeader>
+                                <CardTitle className="text-lg">{section.title}</CardTitle>
+                              </CardHeader>
+                              <CardContent>
+                                <div 
+                                  className="prose prose-sm max-w-none text-foreground dark:prose-invert" 
+                                  dangerouslySetInnerHTML={{ __html: section.bodyHtml }} 
+                                />
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
                       )}
-
+                      
                       {/* Button to generate content */}
-                      {onGenerateModuleContent && !currentModuleContent?.isLoading && !hasDetailedInfo && !currentModuleContent?.error && (
+                      {onGenerateModuleContent && !currentModuleContent?.isLoading && !hasDetailedTextContent && !hasYoutubeQuery && !currentModuleContent?.error && (
                         <Button 
                           onClick={() => onGenerateModuleContent(index, module.title, module.description)}
                           variant="outline"
@@ -190,3 +241,5 @@ function ExternalLink(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+    
