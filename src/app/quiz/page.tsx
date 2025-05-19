@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/spinner';
-import { AlertCircle, CheckCircle, ChevronLeft, Home, Info, Sparkles, RefreshCw, Target, BookOpen } from 'lucide-react';
+import { AlertCircle, CheckCircle, ChevronLeft, Home, Info, Sparkles, RefreshCw, Target, BookOpen, ChevronRight } from 'lucide-react'; // Added ChevronRight
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -171,7 +171,7 @@ function QuizPageContent() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
-        <Card className="p-8 shadow-xl rounded-xl">
+        <Card className="p-8 shadow-xl rounded-xl bg-card">
           <Spinner className="h-16 w-16 text-primary mb-4" />
           <p className="mt-4 text-xl text-muted-foreground">Generating your quiz questions...</p>
           <p className="text-sm text-muted-foreground">Hold tight, this will be quick!</p>
@@ -200,7 +200,7 @@ function QuizPageContent() {
   if (questions.length === 0 && !isLoading) {
     return (
       <div className="container mx-auto py-10 px-4 max-w-2xl">
-        <Alert className="shadow-lg rounded-xl p-6 border-primary/30">
+        <Alert className="shadow-lg rounded-xl p-6 border-primary/30 bg-card">
           <Info className="h-6 w-6 text-primary" />
           <AlertTitle className="text-xl">No Questions Available</AlertTitle>
           <AlertDescription className="text-base mt-1">The AI couldn't generate questions for this module, or no questions were found. Please try again later or go back.</AlertDescription>
@@ -218,7 +218,7 @@ function QuizPageContent() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-3xl">
-      <Card className="shadow-2xl border-t-4 border-primary rounded-xl overflow-hidden">
+      <Card className="shadow-2xl border-t-4 border-primary rounded-xl overflow-hidden bg-card">
         <CardHeader className="bg-muted/50 p-6 border-b border-border">
           <div className="flex justify-between items-center">
             <Button onClick={handleGoBack} variant="outline" size="sm" className="rounded-md">
@@ -273,7 +273,7 @@ function QuizPageContent() {
                 <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" /> :
                 <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
               }
-              <h3 className="text-3xl font-bold mb-2">{score >= QUIZ_COMPLETION_THRESHOLD ? 'Quiz Passed!' : 'Needs Improvement!'}</h3>
+              <h3 className="text-3xl font-bold mb-2 text-foreground">{score >= QUIZ_COMPLETION_THRESHOLD ? 'Quiz Passed!' : 'Needs Improvement!'}</h3>
               <p className={`text-5xl font-extrabold mb-2 ${score >= QUIZ_COMPLETION_THRESHOLD ? 'text-green-700' : 'text-red-700'}`}>{score.toFixed(0)}%</p>
               <p className="text-lg text-muted-foreground mb-6">
                 {score >= QUIZ_COMPLETION_THRESHOLD ? "Fantastic work! You've successfully completed this module." : "Good effort! Review the material and try again to master this module."}
@@ -343,3 +343,4 @@ export default function QuizPage() {
     </Suspense>
   );
 }
+
