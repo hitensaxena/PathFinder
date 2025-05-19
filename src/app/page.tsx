@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
-import { saveLearningPath } from "@/services/learningPathService";
+import { saveLearningPath, type SavedModuleDetail } from "@/services/learningPathService";
 import { useAuth } from "@/context/auth-context";
 import { LearningInputForm } from "@/components/learning-input-form";
 import { LearningPathDisplay } from "@/components/learning-path-display";
@@ -39,7 +39,7 @@ export default function PathAInderPage() {
     setError(null);
     setLearningPath(null);
     setCurrentFormInput(data);
-    setModuleContents({});
+    setModuleContents({}); // Reset module contents for new plan
     try {
       const result = await generateLearningPath(data);
       setLearningPath(result);
@@ -113,16 +113,27 @@ export default function PathAInderPage() {
       return;
     }
     setIsSavingPlan(true);
+
+    const modulesDetailsForDb: { [moduleIndex: string]: SavedModuleDetail } = {};
+    Object.entries(moduleContents).forEach(([index, detailState]) => {
+      if (detailState.content && detailState.youtubeSearchQueries) {
+        modulesDetailsForDb[index] = {
+          content: detailState.content,
+          youtubeSearchQueries: detailState.youtubeSearchQueries,
+        };
+      }
+    });
+
     try {
-      await saveLearningPath(user.uid, learningPath, currentFormInput.learningGoal);
+      await saveLearningPath(user.uid, learningPath, currentFormInput.learningGoal, modulesDetailsForDb);
       toast({
         title: "Plan Saved!",
-        description: "Your learning path has been saved successfully.",
+        description: "Your learning path and any generated content have been saved successfully.",
       });
     } catch (e) {
       console.error("Error saving learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
-      setError(errorMessage); // Consider if this error should be displayed in a toast instead or additionally
+      setError(errorMessage);
       toast({
         title: "Error Saving Plan",
         description: errorMessage,

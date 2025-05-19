@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
-import { getUserLearningPaths, type SavedLearningPath } from "@/services/learningPathService";
+import { getUserLearningPaths, updateLearningPathModuleDetail, type SavedLearningPath, type SavedModuleDetail } from "@/services/learningPathService";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { LearningPathDisplay } from "@/components/learning-path-display";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,28 @@ export default function SavedPathsPage() {
   const [error, setError] = useState<string | null>(null);
   const [moduleContents, setModuleContents] = useState<AllModuleContentsState>({});
 
+  const initializeModuleContents = useCallback((paths: SavedLearningPath[]) => {
+    const initialContents: AllModuleContentsState = {};
+    paths.forEach(path => {
+      initialContents[path.id] = {};
+      if (path.modulesDetails) {
+        Object.entries(path.modulesDetails).forEach(([moduleIndexStr, detail]) => {
+          const moduleIndex = parseInt(moduleIndexStr, 10);
+          if (!isNaN(moduleIndex)) {
+            initialContents[path.id][moduleIndex] = {
+              isLoading: false,
+              content: detail.content,
+              youtubeSearchQueries: detail.youtubeSearchQueries,
+              error: null,
+            };
+          }
+        });
+      }
+    });
+    setModuleContents(initialContents);
+  }, []);
+
+
   useEffect(() => {
     if (authLoading) {
       setIsLoading(true);
@@ -55,6 +77,7 @@ export default function SavedPathsPage() {
       try {
         const paths = await getUserLearningPaths(user.uid);
         setSavedPaths(paths);
+        initializeModuleContents(paths);
       } catch (e) {
         console.error("Error fetching saved learning paths:", e);
         const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while fetching your saved paths.";
@@ -65,18 +88,17 @@ export default function SavedPathsPage() {
     }
 
     fetchPaths();
-  }, [user, authLoading]);
+  }, [user, authLoading, initializeModuleContents]);
 
   const handleGenerateModuleContentForSavedPath = async (
     pathId: string,
-    learningGoal: string, // This is typed as string from SavedLearningPath
+    learningGoal: string | undefined, // learningGoal might be undefined for old paths
     moduleIndex: number,
     moduleTitle: string,
     moduleDescription: string
   ) => {
-    // learningGoal might be undefined if the Firestore document is old and doesn't have this field.
     if (!learningGoal || typeof learningGoal !== 'string') {
-      const errorMessage = "Learning goal context is missing for this saved path. Cannot generate detailed content.";
+      const errorMessage = "Learning goal context is missing for this saved path. Detailed content cannot be generated.";
       setModuleContents(prev => ({
         ...prev,
         [pathId]: {
@@ -104,9 +126,17 @@ export default function SavedPathsPage() {
       const input: GenerateModuleContentInput = {
         moduleTitle,
         moduleDescription,
-        learningGoal, // Now learningGoal is guaranteed to be a non-empty string here
+        learningGoal,
       };
       const result = await generateModuleContent(input);
+      
+      const newDetail: SavedModuleDetail = {
+        content: result.detailedContent,
+        youtubeSearchQueries: result.youtubeSearchQueries || [],
+      };
+
+      await updateLearningPathModuleDetail(pathId, moduleIndex, newDetail);
+
       setModuleContents(prev => ({
         ...prev,
         [pathId]: {
@@ -116,7 +146,7 @@ export default function SavedPathsPage() {
       }));
       toast({
         title: `Content for "${moduleTitle}"`,
-        description: "Detailed content generated successfully.",
+        description: "Detailed content generated and saved successfully.",
       });
     } catch (e) {
       console.error(`Error generating content for module ${moduleIndex} in path ${pathId}:`, e);
@@ -222,7 +252,7 @@ export default function SavedPathsPage() {
               <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary">
                 <CardHeader>
                   <CardTitle className="text-2xl">
-                    {path.learningGoal || "Learning Path"} {/* Display learning goal as title */}
+                    {path.learningGoal || "Learning Path"}
                   </CardTitle>
                    {path.createdAt && (
                      <CardDescription>
@@ -249,7 +279,6 @@ export default function SavedPathsPage() {
   );
 }
 
-// Simple Header and Footer components for this page, can be extracted later if needed
 function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -264,7 +293,7 @@ function Header() {
           </div>
           <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
         </Link>
-        {/* AuthButtons could be imported here if complex auth logic is needed, or kept separate */}
+        {/* AuthButtons could be imported here */}
       </div>
     </header>
   );
