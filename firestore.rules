@@ -1,0 +1,20 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Learning Paths collection
+    // - Users can only read their own learning paths.
+    // - Users can only create learning paths for themselves (userId must match auth.uid).
+    // - For simplicity, updates and deletes are currently disallowed.
+    //   To enable them for owners, you can change 'allow update: if false;'
+    //   to 'allow update: if request.auth != null && request.auth.uid == resource.data.userId;'
+    //   and similarly for delete.
+    match /learningPaths/{pathId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
