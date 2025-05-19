@@ -12,6 +12,19 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Check if the authDomain seems to be a placeholder
+if (firebaseConfig.authDomain && (firebaseConfig.authDomain.includes('your-project-auth-domain') || firebaseConfig.authDomain.includes('YOUR_PROJECT_ID'))) {
+  console.warn(
+    `***************************************************************************************
+WARNING: Your Firebase authDomain ("${firebaseConfig.authDomain}") in .env 
+appears to be a placeholder. This will cause authentication issues.
+Please replace it with your actual Firebase project's authDomain.
+You can find this in your Firebase project settings (Project Overview > Project settings).
+It usually looks like '[YOUR_PROJECT_ID].firebaseapp.com'.
+***************************************************************************************`
+  );
+}
+
 // Initialize Firebase
 let app: FirebaseApp;
 if (!getApps().length) {
