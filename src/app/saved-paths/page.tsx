@@ -12,7 +12,8 @@ import {
   type SavedLearningPath, 
   type SavedModuleDetailedContent,
 } from "@/services/learningPathService";
-import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
+import { generateModuleContent } from "@/ai/flows/generate-module-content";
+import type { GenerateModuleContentInput, GenerateModuleContentOutput } from "@/ai/flows/content-types";
 import { LearningPathDisplay, type LearningModuleWithQuizStatus } from "@/components/learning-path-display";
 import { SavedPathCardActions } from "@/components/saved-path-card-actions";
 import { Button } from "@/components/ui/button";

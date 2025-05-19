@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { useLearningPath } from "@/context/learning-path-context";
 import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
-import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
+import { generateModuleContent } from "@/ai/flows/generate-module-content";
+import type { GenerateModuleContentInput, GenerateModuleContentOutput } from "@/ai/flows/content-types";
 import { generateModuleVideo, type GenerateModuleVideoInput, type GenerateModuleVideoOutput } from "@/ai/flows/generate-module-video";
 import { saveLearningPath, type SavedModuleDetailedContent, type SavedLearningPath } from "@/services/learningPathService";
 import { useAuth } from "@/context/auth-context";
@@ -244,9 +245,9 @@ export default function ViewPlanPage() {
                   sectionTitle: section.sectionTitle,
                   sectionContent: section.sectionContent,
                   recommendedYoutubeVideoQuery: section.recommendedYoutubeVideoQuery,
-                  videoId: videoResult.videoId,
-                  videoTitle: videoResult.videoTitle,
-                  videoUrl: videoResult.videoUrl,
+                  videoId: videoResult.videoId === undefined ? null : videoResult.videoId,
+                  videoTitle: videoResult.videoTitle === undefined ? null : videoResult.videoTitle,
+                  videoUrl: videoResult.videoUrl === undefined ? null : videoResult.videoUrl,
                 }))
                 .catch(videoError => {
                   console.error(`Error generating video for section "${section.sectionTitle}" in module "${module.title}" using query "${section.recommendedYoutubeVideoQuery}":`, videoError);

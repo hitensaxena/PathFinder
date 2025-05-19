@@ -2,7 +2,7 @@
 "use client";
 
 import type { GenerateLearningPathOutput as LearningPathData } from "@/ai/flows/generate-learning-path";
-import type { ModuleSectionSchema } from "@/ai/flows/generate-module-content";
+import type { ModuleSection } from "@/ai/flows/content-types";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,7 +25,7 @@ export type LearningModuleWithQuizStatus = LearningModule & {
   quizStatus?: SavedModuleQuizStatus;
 };
 
-type SectionContent = ModuleSectionSchema;
+type SectionContent = ModuleSection;
 
 type ModuleDetailedContentState = {
   isLoading: boolean;
