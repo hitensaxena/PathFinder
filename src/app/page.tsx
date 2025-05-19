@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 type ModuleContent = {
   isLoading: boolean;
   content: string | null;
+  youtubeSearchQueries: string[] | null;
   error: string | null;
 };
 
@@ -68,7 +69,7 @@ export default function PathAInderPage() {
 
     setModuleContents(prev => ({
       ...prev,
-      [moduleIndex]: { isLoading: true, content: null, error: null }
+      [moduleIndex]: { isLoading: true, content: null, youtubeSearchQueries: null, error: null }
     }));
 
     try {
@@ -80,7 +81,7 @@ export default function PathAInderPage() {
       const result = await generateModuleContent(input);
       setModuleContents(prev => ({
         ...prev,
-        [moduleIndex]: { isLoading: false, content: result.detailedContent, error: null }
+        [moduleIndex]: { isLoading: false, content: result.detailedContent, youtubeSearchQueries: result.youtubeSearchQueries || null, error: null }
       }));
       toast({
         title: `Content for "${moduleTitle}"`,
@@ -91,7 +92,7 @@ export default function PathAInderPage() {
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
       setModuleContents(prev => ({
         ...prev,
-        [moduleIndex]: { isLoading: false, content: null, error: errorMessage }
+        [moduleIndex]: { isLoading: false, content: null, youtubeSearchQueries: null, error: errorMessage }
       }));
       toast({
         title: `Error for "${moduleTitle}"`,
