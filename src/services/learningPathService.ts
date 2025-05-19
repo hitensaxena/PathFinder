@@ -10,6 +10,9 @@ interface ModuleSectionDetail {
   sectionTitle: string;
   sectionContent: string;
   recommendedYoutubeVideoQuery: string;
+  videoId?: string;
+  videoTitle?: string;
+  videoUrl?: string;
 }
 
 export interface SavedModuleQuizStatus {

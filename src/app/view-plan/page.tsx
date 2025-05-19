@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useLearningPath } from "@/context/learning-path-context";
 import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
+import { generateModuleVideo, type GenerateModuleVideoInput, type GenerateModuleVideoOutput } from "@/ai/flows/generate-module-video";
 import { saveLearningPath, type SavedModuleDetailedContent, type SavedLearningPath } from "@/services/learningPathService";
 import { useAuth } from "@/context/auth-context";
 import { LearningPathDisplay } from "@/components/learning-path-display";
@@ -44,6 +45,9 @@ type SectionContent = {
   sectionTitle: string;
   sectionContent: string;
   recommendedYoutubeVideoQuery: string;
+  videoId?: string;
+  videoTitle?: string;
+  videoUrl?: string;
 };
 
 type ModuleContentState = {
@@ -82,6 +86,7 @@ export default function ViewPlanPage() {
       toast({ title: "Error", description: "Learning goal context is missing.", variant: "destructive" });
       return;
     }
+
     const moduleKey = String(moduleIndex);
     setModuleContents(prev => ({
       ...prev,
@@ -89,23 +94,66 @@ export default function ViewPlanPage() {
     }));
 
     try {
-      const input: GenerateModuleContentInput = {
+      const contentInput: GenerateModuleContentInput = {
         moduleTitle,
         moduleDescription,
         learningGoal: formInput.learningGoal,
       };
-      const result = await generateModuleContent(input);
+      
+      const contentResult = await generateModuleContent(contentInput);
+      let sectionsWithVideoData: SectionContent[] = [];
+
+      if (contentResult.sections && contentResult.sections.length > 0) {
+        const videoPromises: Promise<SectionContent>[] = contentResult.sections.map(section => {
+          const videoInput: GenerateModuleVideoInput = {
+            moduleTitle: section.sectionTitle,
+            moduleDescription: section.sectionContent,
+            learningGoal: formInput.learningGoal,
+            searchQuery: section.recommendedYoutubeVideoQuery,
+          };
+          return generateModuleVideo(videoInput)
+            .then(videoResult => ({
+              sectionTitle: section.sectionTitle,
+              sectionContent: section.sectionContent,
+              recommendedYoutubeVideoQuery: section.recommendedYoutubeVideoQuery,
+              videoId: videoResult.videoId,
+              videoTitle: videoResult.videoTitle,
+              videoUrl: videoResult.videoUrl,
+            }))
+            .catch(videoError => {
+              console.error(`Error generating video for section "${section.sectionTitle}" using query "${section.recommendedYoutubeVideoQuery}":`, videoError);
+              // The error is logged. Return the section without video info.
+              return {
+                sectionTitle: section.sectionTitle,
+                sectionContent: section.sectionContent,
+                recommendedYoutubeVideoQuery: section.recommendedYoutubeVideoQuery,
+                videoId: undefined,
+                videoTitle: undefined,
+                videoUrl: undefined,
+              };
+            });
+        });
+
+        // Since each promise in videoPromises is guaranteed to resolve to a SectionContent object,
+        // we can use Promise.all.
+        sectionsWithVideoData = await Promise.all(videoPromises);
+      } else {
+        sectionsWithVideoData = [];
+      }
+
       setModuleContents(prev => ({
         ...prev,
-        [moduleKey]: { isLoading: false, sections: result.sections, error: null }
+        [moduleKey]: { isLoading: false, sections: sectionsWithVideoData, error: null }
       }));
+      
       toast({
         title: `Content for "${moduleTitle}"`,
-        description: "Detailed content generated successfully.",
+        description: "Detailed content and video recommendations generated successfully.",
       });
     } catch (e) {
       console.error(`Error generating content for module ${moduleIndex}:`, e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
+      
       setModuleContents(prev => ({
         ...prev,
         [moduleKey]: { isLoading: false, sections: null, error: errorMessage }
@@ -144,6 +192,7 @@ export default function ViewPlanPage() {
         description: "Please sign in to create your learning path.",
         variant: "destructive",
       });
+      // Consider setShowSaveSignInDialog(true); for better UX if needed
       return;
     }
 
@@ -160,33 +209,102 @@ export default function ViewPlanPage() {
     setPageError(null);
     const modulesDetailsForDb: { [moduleIndex: string]: SavedModuleDetailedContent } = {};
 
+    // Initialize all module states to loading before the loop
+    const initialModuleLoadingStates = pathData.modules.reduce((acc, _, i) => {
+      acc[String(i)] = { isLoading: true, sections: null, error: null };
+      return acc;
+    }, {} as AllModuleContentsState);
+    setModuleContents(initialModuleLoadingStates);
+
+    const allGeneratedModuleData: { [moduleIndex: string]: { sections: SectionContent[] | null, error: string | null } } = {};
+
     try {
       for (let i = 0; i < pathData.modules.length; i++) {
         const module = pathData.modules[i];
+        const moduleKey = String(i);
         try {
-           const input: GenerateModuleContentInput = {
-              moduleTitle: module.title,
-              moduleDescription: module.description,
-              learningGoal: formInput.learningGoal,
-           };
-           setModuleContents(prev => ({
-              ...prev,
-              [String(i)]: { isLoading: true, sections: null, error: null }
-           }));
-           const result = await generateModuleContent(input);
-           modulesDetailsForDb[String(i)] = { sections: result.sections };
-            setModuleContents(prev => ({
-              ...prev,
-              [String(i)]: { isLoading: false, sections: result.sections, error: null }
-           }));
+          const contentInput: GenerateModuleContentInput = {
+            moduleTitle: module.title,
+            moduleDescription: module.description,
+            learningGoal: formInput.learningGoal,
+          };
+          const contentResult = await generateModuleContent(contentInput); // contentResult.sections is ModuleSectionSchema[]
+          let sectionsWithVideos: SectionContent[] = [];
+
+          if (contentResult.sections && contentResult.sections.length > 0) {
+            const videoPromises: Promise<SectionContent>[] = contentResult.sections.map(section => {
+              const videoInput: GenerateModuleVideoInput = {
+                moduleTitle: section.sectionTitle, 
+                moduleDescription: section.sectionContent, 
+                learningGoal: formInput.learningGoal,
+                searchQuery: section.recommendedYoutubeVideoQuery,
+              };
+              return generateModuleVideo(videoInput)
+                .then(videoResult => ({
+                  sectionTitle: section.sectionTitle,
+                  sectionContent: section.sectionContent,
+                  recommendedYoutubeVideoQuery: section.recommendedYoutubeVideoQuery,
+                  videoId: videoResult.videoId,
+                  videoTitle: videoResult.videoTitle,
+                  videoUrl: videoResult.videoUrl,
+                }))
+                .catch(videoError => {
+                  console.error(`Error generating video for section "${section.sectionTitle}" in module "${module.title}" using query "${section.recommendedYoutubeVideoQuery}":`, videoError);
+                  // Return a SectionContent compliant object, error is logged.
+                  return {
+                    sectionTitle: section.sectionTitle,
+                    sectionContent: section.sectionContent,
+                    recommendedYoutubeVideoQuery: section.recommendedYoutubeVideoQuery,
+                    videoId: undefined,
+                    videoTitle: undefined,
+                    videoUrl: undefined,
+                  };
+                });
+            });
+
+            // Since each promise in videoPromises is guaranteed to resolve to a SectionContent object (due to the .catch above),
+            // we can use Promise.all.
+            sectionsWithVideos = await Promise.all(videoPromises);
+          } else {
+            sectionsWithVideos = []; // No sections, so no videos
+          }
+
+          // For DB and local state: use sectionsWithVideos (SectionContent[])
+          // SectionContent is compatible with ModuleSectionDetail for saving
+          modulesDetailsForDb[moduleKey] = { sections: sectionsWithVideos }; 
+          allGeneratedModuleData[moduleKey] = { sections: sectionsWithVideos, error: null }; // Error for the whole module content generation is handled separately
+
         } catch (moduleError) {
-           console.error(`Error generating content for module ${i}:`, moduleError);
-           const errorMessage = moduleError instanceof Error ? moduleError.message : "Failed to generate content for this module.";
-             setModuleContents(prev => ({
-              ...prev,
-              [String(i)]: { isLoading: false, sections: null, error: errorMessage }
-           }));
+          console.error(`Error generating content for module ${i} ("${module.title}"):`, moduleError);
+          const errorMessage = moduleError instanceof Error ? moduleError.message : "Failed to generate content for this module.";
+          allGeneratedModuleData[moduleKey] = { sections: null, error: errorMessage };
+          // modulesDetailsForDb will not have an entry for this failed module's content
         }
+      }
+
+      // Batch update all module states after the loop
+      setModuleContents(prev => { // prev here are the initialModuleLoadingStates
+        const newStates = { ...prev }; 
+        Object.keys(allGeneratedModuleData).forEach(moduleIndex => {
+          if (newStates[moduleIndex]) { // Ensure the key exists from initial loading state
+            newStates[moduleIndex] = {
+              isLoading: false, 
+              sections: allGeneratedModuleData[moduleIndex].sections,
+              error: allGeneratedModuleData[moduleIndex].error,
+            };
+          }
+        });
+        return newStates;
+      });
+      
+      const hasAnyModuleGenerationError = Object.values(allGeneratedModuleData).some(data => data.error !== null);
+      if (hasAnyModuleGenerationError) {
+          toast({
+              title: "Content Generation Complete with Issues",
+              description: "Some module details could not be generated. They can be retried from the saved path view if this path is saved.",
+              variant: "destructive",
+              duration: 7000,
+          });
       }
 
       const savedPathId = await saveLearningPath(user.uid, pathData, formInput.learningGoal, modulesDetailsForDb);
@@ -198,7 +316,7 @@ export default function ViewPlanPage() {
 
       router.push(`/library/${savedPathId}`);
 
-    } catch (e) {
+    } catch (e) { 
       console.error("Error creating learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while creating your path.";
       setPageError(errorMessage);

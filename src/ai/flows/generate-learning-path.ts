@@ -52,9 +52,9 @@ const prompt = ai.definePrompt({
   Preferred Learning Style: {{{preferredLearningStyle}}}
   Weekly Time Commitment: {{{weeklyTimeCommitment}}} hours/week
 
-  Break down the learning goal into a logical sequence of 3-5 high-level topics or modules suitable for the current knowledge level and weekly time commitment over an estimated 4-week timeframe.
+  Break down the learning goal into a logical sequence of 6-7 high-level topics or modules suitable for the current knowledge level and weekly time commitment over an estimated 4-week timeframe.
   For each topic/module, suggest 1-2 types of learning resources or general search queries that align with the preferred learning style. For the MVP, do not attempt to find specific, live URLs.
-  Provide a brief (1-2 sentence) description for each topic/module.
+  Provide a brief (4-5 sentences) description for each topic/module.
   Estimate the time to be spent on each topic/module based on the overall weekly commitment.
 
   Return the plan in a structured JSON format with "modules" as the main array. Each module should have the following fields:

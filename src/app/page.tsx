@@ -43,7 +43,7 @@ export default function PathAInderPage() {
                 <Input
                   name="learningGoal"
                   placeholder="What would you like to learn? (e.g., Web Development, Data Science, Machine Learning, Digital Marketing...)"
-                  className="flex-1 text-xl py-8 px-6 rounded-lg border-2 border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/30 bg-background/80 shadow-md focus:shadow-primary/20 transition-all duration-300 focus:scale-105 focus:shadow-lg focus:shadow-primary/30"
+                  className="flex-1 text-xl py-8 px-6 rounded-lg border-2 border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/30 bg-background/80 shadow-md  transition-all duration-300 focus:scale-105 focus:shadow-lg focus:shadow-primary/30"
                   autoFocus
                   required
                 />
@@ -312,15 +312,6 @@ export default function PathAInderPage() {
           </div>
         </section>
       </main>
-
-      <footer className="text-center py-8 border-t border-border/60 bg-background">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <p className="text-md text-muted-foreground">
-            &copy; {new Date().getFullYear()} PathAInder. All rights reserved.
-            Powered by <span className="font-semibold text-primary">AI</span> with <span className="text-accent">♥</span>
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

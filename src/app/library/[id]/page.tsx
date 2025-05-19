@@ -24,19 +24,11 @@ const simulatedSubModules = [
   { title: "Advanced Topics", completed: false, icon: <Lock className="h-4 w-4 text-muted-foreground" /> },
 ];
 
-// Helper to simulate getting a YouTube embed URL from a query (replace with actual YouTube API call)
-const getSimulatedYoutubeEmbedUrl = (query: string | undefined): string | null => {
-  if (!query) return null;
-  // In a real app, you would perform a YouTube search here
-  // For simulation, let's just use a placeholder or derive from the query
+// Helper to get YouTube embed URL from video ID
+const getYoutubeEmbedUrl = (videoId: string | undefined): string | null => {
+  if (!videoId) return null;
   const baseEmbedUrl = "https://www.youtube.com/embed/";
-  // This is a placeholder video ID (Rick Astley). Replace with actual search logic.
-  const placeholderVideoId = "dQw4w9WgXcQ"; 
-  // A slightly more dynamic placeholder based on query might look like:
-  // const simpleHash = query.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0); 
-  // const simulatedVideoId = `sim${simpleHash}`; // Not a real YouTube ID
-  
-  return `${baseEmbedUrl}${placeholderVideoId}?rel=0`;
+  return `${baseEmbedUrl}${videoId}?rel=0`;
 };
 
 
@@ -179,8 +171,8 @@ export default function PathDetailPage({ params }: { params: Promise<{ id: strin
   // Assuming sub-module index corresponds to section index
   const selectedSection = selectedModuleDetails?.sections?.[selectedSubModuleIndex];
 
-  // Determine the YouTube URL to embed (simulated)
-  const youtubeEmbedUrl = getSimulatedYoutubeEmbedUrl(selectedSection?.recommendedYoutubeVideoQuery);
+  // Get the YouTube URL to embed from section data
+  const youtubeEmbedUrl = selectedSection?.videoUrl || getYoutubeEmbedUrl(selectedSection?.videoId);
 
 
   return (
@@ -220,6 +212,7 @@ export default function PathDetailPage({ params }: { params: Promise<{ id: strin
             {selectedModule ? (
               <Card className="rounded-lg p-6 shadow-sm">
                  {/* YouTube Video Embed */}
+                 
                 <div className="aspect-video bg-muted rounded-md overflow-hidden mb-6">
                    {youtubeEmbedUrl ? (
                       <iframe
@@ -355,7 +348,7 @@ export default function PathDetailPage({ params }: { params: Promise<{ id: strin
                           </div>
                         ))}
                          {/* Optional: Add Module-wide quiz/generate buttons in the footer of AccordionContent */}
-                           {/* <div className="flex gap-2 px-2 pt-2">
+                            <div className="flex gap-2 px-2 pt-2">
                              <Button 
                                variant="outline" 
                                size="sm" 
@@ -374,7 +367,7 @@ export default function PathDetailPage({ params }: { params: Promise<{ id: strin
                              >
                                <ListChecks className="h-4 w-4" /> Test Module Knowledge
                              </Button>
-                           </div> */}
+                           </div> 
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -396,4 +389,4 @@ export default function PathDetailPage({ params }: { params: Promise<{ id: strin
       </div>
     </div>
   );
-} 
+}

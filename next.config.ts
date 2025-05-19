@@ -18,10 +18,21 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
+    // Add fallbacks for Node.js core modules that are not available in the browser
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+        http2: false,
+      };
+    }
     config.resolve.fallback = {
       ...config.resolve.fallback,
-      '@opentelemetry/exporter-jaeger': false,
+      '@opentelemetry/exporter-jaeger': false, // Existing fallback
     };
     return config;
   },
