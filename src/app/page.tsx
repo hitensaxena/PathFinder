@@ -12,9 +12,22 @@ import { AuthButtons } from "@/components/auth-buttons";
 import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Save } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { AlertCircle, Save, LogIn } from "lucide-react";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+
 
 // Represents the state for a single module's detailed content, now section-based
 type ModuleContentState = {
@@ -33,8 +46,33 @@ export default function PathAInderPage() {
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [moduleContents, setModuleContents] = useState<{ [moduleIndex: number]: ModuleContentState }>({});
+  const [showSignInDialog, setShowSignInDialog] = useState(false);
+
+  const handleSignInFromDialog = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      toast({
+        title: "Signed In",
+        description: "Successfully signed in with Google. You can now generate your plan.",
+      });
+      setShowSignInDialog(false);
+    } catch (error) {
+      console.error('Error signing in with Google:', error);
+      toast({
+        title: "Sign In Failed",
+        description: "Could not sign in with Google. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleGeneratePlan = async (data: GenerateLearningPathInput) => {
+    if (!user) {
+      setShowSignInDialog(true);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setLearningPath(null);
@@ -245,6 +283,24 @@ export default function PathAInderPage() {
             </div>
           </>
         )}
+
+        <AlertDialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign In Required</AlertDialogTitle>
+              <AlertDialogDescription>
+                Please sign in with your Google account to generate and save your personalized learning path.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSignInFromDialog}>
+                <LogIn className="mr-2 h-4 w-4" /> Sign In with Google
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </main>
       <footer className="text-center py-6 border-t">
         <p className="text-sm text-muted-foreground">
