@@ -12,7 +12,7 @@ import { LearningPathDisplay } from "@/components/learning-path-display";
 import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Save, FilePlus, LogIn, Home, Sparkles, CheckCircle } from "lucide-react";
+import { AlertCircle, Save, FilePlus, LogIn, Home, Sparkles, CheckCircle, BookCopy } from "lucide-react"; // Added BookCopy
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -29,9 +29,15 @@ import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 
+type SectionContent = {
+  sectionTitle: string;
+  sectionContent: string;
+  recommendedYoutubeVideoQuery: string;
+};
+
 type ModuleContentState = {
   isLoading: boolean;
-  sections: GenerateModuleContentOutput['sections'] | null;
+  sections: SectionContent[] | null;
   error: string | null;
 };
 
@@ -316,3 +322,4 @@ function Footer() {
     </footer>
   );
 }
+
