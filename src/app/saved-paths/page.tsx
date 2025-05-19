@@ -11,16 +11,15 @@ import {
   updateLearningPathGoal,
   type SavedLearningPath, 
   type SavedModuleDetailedContent,
-  type SavedModuleQuizStatus
 } from "@/services/learningPathService";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
-import { LearningPathDisplay, type LearningModuleWithQuizStatus } from "@/components/learning-path-display"; // Updated import
+import { LearningPathDisplay, type LearningModuleWithQuizStatus } from "@/components/learning-path-display";
 import { SavedPathCardActions } from "@/components/saved-path-card-actions";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Spinner } from "@/components/spinner";
-import { AlertCircle, BookCopy, LogIn, ListChecks } from "lucide-react";
+import { AlertCircle, BookCopy, LogIn, ListChecks, Home, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 
@@ -144,7 +143,6 @@ export default function SavedPathsPage() {
       };
       const result = await generateModuleContent(input); 
       
-      // Ensure detail is correctly typed for updateLearningPathModuleDetail
       const newDetailUpdate: Pick<SavedModuleDetailedContent, 'sections'> = { sections: result.sections };
 
       await updateLearningPathModuleDetail(pathId, moduleIndex, newDetailUpdate);
@@ -198,7 +196,6 @@ export default function SavedPathsPage() {
   const handleRenamePath = async (pathId: string, newGoal: string) => {
     try {
       await updateLearningPathGoal(pathId, newGoal);
-      // Optimistically update UI or refetch
       setSavedPaths(prevPaths => prevPaths.map(p => p.id === pathId ? {...p, learningGoal: newGoal} : p));
       toast({ title: "Path Renamed", description: "The learning path has been successfully renamed."});
     } catch (error) {
@@ -219,11 +216,13 @@ export default function SavedPathsPage() {
 
   if (authLoading || (isLoading && user && savedPaths.length === 0)) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col bg-muted/30">
         <Header />
         <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl flex flex-col justify-center items-center">
-          <Spinner className="h-12 w-12 text-primary" />
-          <p className="text-lg text-muted-foreground mt-4">Loading your saved paths...</p>
+          <Card className="p-8 shadow-xl rounded-xl">
+            <Spinner className="h-16 w-16 text-primary mb-4" />
+            <p className="text-xl text-muted-foreground mt-2">Loading your learning journeys...</p>
+          </Card>
         </main>
         <Footer />
       </div>
@@ -232,21 +231,23 @@ export default function SavedPathsPage() {
 
   if (!user && !authLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col bg-muted/30">
         <Header />
         <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl flex flex-col justify-center items-center text-center">
-          <Card className="w-full max-w-md shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-center">
-                <LogIn className="mr-2 h-6 w-6 text-primary" /> Please Sign In
+          <Card className="w-full max-w-md shadow-xl rounded-xl p-8 border-t-4 border-primary">
+            <CardHeader className="p-0 mb-4">
+              <CardTitle className="text-3xl flex items-center justify-center">
+                <LogIn className="mr-3 h-8 w-8 text-primary" /> Please Sign In
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-6">
+            <CardContent className="p-0">
+              <p className="text-lg text-muted-foreground mb-8">
                 You need to be signed in to view your saved learning paths.
               </p>
-              <Button asChild>
-                <Link href="/">Go to Homepage to Sign In</Link>
+              <Button asChild size="lg" className="rounded-lg">
+                <Link href="/">
+                  <Home className="mr-2 h-5 w-5" /> Go to Homepage to Sign In
+                </Link>
               </Button>
             </CardContent>
           </Card>
@@ -257,60 +258,62 @@ export default function SavedPathsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/40">
       <Header />
-      <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl">
-        <div className="text-center mb-10 md:mb-16">
-          <h1 className="text-3xl md:text-4xl font-semibold text-foreground mb-2 flex items-center justify-center">
-            <BookCopy className="mr-3 h-8 w-8 text-primary" /> Your Saved Learning Paths
+      <main className="flex-grow container mx-auto px-4 py-10 md:py-16 max-w-5xl">
+        <div className="text-center mb-12 md:mb-16">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-3 flex items-center justify-center">
+            <BookCopy className="mr-4 h-10 w-10 text-primary" /> Your Learning Library
           </h1>
-          <p className="text-lg text-muted-foreground">
-            Revisit your personalized learning journeys, generate detailed content, manage your paths, and test your knowledge.
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Revisit your personalized journeys, generate detailed content, manage paths, and test your knowledge.
           </p>
         </div>
 
         {error && (
-          <Alert variant="destructive" className="mb-8 shadow-md">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error Loading Paths</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" className="mb-8 shadow-lg rounded-xl p-6">
+            <AlertCircle className="h-6 w-6" />
+            <AlertTitle className="text-xl">Error Loading Paths</AlertTitle>
+            <AlertDescription className="text-base mt-1">{error}</AlertDescription>
           </Alert>
         )}
 
         {!isLoading && !error && user && savedPaths.length === 0 && (
-          <Card className="shadow-lg bg-background">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <ListChecks className="mr-2 h-6 w-6 text-primary" />
+          <Card className="shadow-xl bg-card rounded-xl p-8 border-t-4 border-accent text-center">
+            <CardHeader className="p-0 mb-4">
+              <ListChecks className="mx-auto h-16 w-16 text-accent/80 mb-4" />
+              <CardTitle className="text-3xl font-semibold">
                 No Saved Paths Yet
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-6">
-                You haven't saved any learning paths. Create one on the homepage!
+            <CardContent className="p-0">
+              <p className="text-lg text-muted-foreground mb-8">
+                You haven't saved any learning paths. Let's create one!
               </p>
-              <Button asChild>
-                <Link href="/">Create a New Path</Link>
+              <Button asChild size="lg" className="rounded-lg">
+                <Link href="/">
+                  <Sparkles className="mr-2 h-5 w-5" /> Create a New Path
+                </Link>
               </Button>
             </CardContent>
           </Card>
         )}
 
         {!error && user && savedPaths.length > 0 && (
-          <div className="space-y-12">
+          <div className="space-y-10">
             {savedPaths.map((path) => {
               const displayPath = getAugmentedPathForDisplay(path);
               return (
-              <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary bg-background">
-                <CardHeader className="pb-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                    <div className="mb-3 sm:mb-0">
-                      <CardTitle className="text-2xl mb-0.5">
+              <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary bg-card rounded-2xl transition-all hover:shadow-2xl">
+                <CardHeader className="p-6 pb-4 bg-muted/30 border-b border-border">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="flex-grow">
+                      <CardTitle className="text-2xl md:text-3xl font-bold text-foreground leading-tight mb-1">
                         {path.learningGoal || "Learning Path"} 
                       </CardTitle>
                       {path.createdAt && (
-                        <CardDescription className="text-sm">
-                          Saved {formatDistanceToNow(path.createdAt.toDate(), { addSuffix: true })}
+                        <CardDescription className="text-sm text-muted-foreground">
+                          Created {formatDistanceToNow(path.createdAt.toDate(), { addSuffix: true })}
                         </CardDescription>
                       )}
                     </div>
@@ -322,9 +325,9 @@ export default function SavedPathsPage() {
                     />
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   <LearningPathDisplay
-                    path={displayPath} // Pass augmented path
+                    path={displayPath}
                     learningGoal={path.learningGoal || "Untitled Learning Path"} 
                     moduleContents={moduleContents[path.id] || {}}
                     onGenerateModuleContent={(moduleIndex, moduleTitle, moduleDescription) => 
@@ -344,19 +347,23 @@ export default function SavedPathsPage() {
 
 function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center justify-between max-w-4xl">
-        <Link href="/" className="flex items-center">
-          <div className="bg-primary text-primary-foreground p-2 rounded-md shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between max-w-5xl px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center group">
+          <div className="bg-primary text-primary-foreground p-2.5 rounded-lg shadow-md transition-transform group-hover:scale-105">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
               <path d="M2 17l10 5 10-5"></path>
               <path d="M2 12l10 5 10-5"></path>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
+          <h1 className="text-3xl font-bold text-primary ml-3 tracking-tight">PathAInder</h1>
         </Link>
-        {/* AuthButtons can be added here if needed on this page specifically */}
+         <Button variant="ghost" asChild className="rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10">
+            <Link href="/">
+              <Home className="mr-2 h-5 w-5" /> Home
+            </Link>
+          </Button>
       </div>
     </header>
   );
@@ -364,10 +371,13 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="text-center py-6 border-t bg-background">
-      <p className="text-sm text-muted-foreground">
-        &copy; {new Date().getFullYear()} PathAInder. All rights reserved.
-      </p>
+    <footer className="text-center py-8 border-t border-border/60 bg-background">
+      <div className="container mx-auto px-4 md:px-6">
+        <p className="text-md text-muted-foreground">
+          &copy; {new Date().getFullYear()} PathAInder. All rights reserved. 
+           Powered by <span className="font-semibold text-primary">AI</span> with <span className="text-accent">inspiration</span>.
+        </p>
+      </div>
     </footer>
   );
 }

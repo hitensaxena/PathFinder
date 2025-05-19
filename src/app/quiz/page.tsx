@@ -4,12 +4,12 @@
 import { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { generateQuiz, type GenerateQuizInput, type QuizQuestion } from '@/ai/flows/generate-quiz-flow';
-import { updateLearningPathModuleQuizStatus } from '@/services/learningPathService'; // Import service
+import { updateLearningPathModuleQuizStatus } from '@/services/learningPathService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/spinner';
-import { AlertCircle, CheckCircle, ChevronLeft, Home, Info, Sparkles, RefreshCw } from 'lucide-react'; // Added RefreshCw
+import { AlertCircle, CheckCircle, ChevronLeft, Home, Info, Sparkles, RefreshCw, Target, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -28,8 +28,8 @@ function QuizPageContent() {
   const moduleTitle = searchParams.get('moduleTitle');
   const moduleDescription = searchParams.get('moduleDescription');
   const learningGoal = searchParams.get('learningGoal');
-  const pathId = searchParams.get('pathId'); // For saved paths
-  const moduleIndexStr = searchParams.get('moduleIndex'); // For saved paths
+  const pathId = searchParams.get('pathId');
+  const moduleIndexStr = searchParams.get('moduleIndex');
   const moduleIndex = moduleIndexStr ? parseInt(moduleIndexStr) : undefined;
 
 
@@ -101,7 +101,7 @@ function QuizPageContent() {
     setSelectedOption(optionIndex);
   };
 
-  const handleNextQuestion = async () => { // Make async for saving score
+  const handleNextQuestion = async () => {
     if (selectedOption === undefined) {
         toast({ title: "No option selected", description: "Please select an answer before proceeding.", variant: "destructive"});
         return;
@@ -114,7 +114,6 @@ function QuizPageContent() {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else {
-      // Last question answered, calculate score and complete quiz
       let correctAnswers = 0;
       questions.forEach((q, index) => {
         if (newAnswers[index] === q.correctAnswerIndex) {
@@ -130,16 +129,16 @@ function QuizPageContent() {
       toast({
         title: "Quiz Submitted!",
         description: `You scored ${finalScore.toFixed(0)}%. ${isModuleCompleted ? "Module completed!" : "Try again to improve your score."}`,
-        variant: isModuleCompleted ? "default" : "destructive"
+        variant: isModuleCompleted ? "default" : "destructive",
+        duration: isModuleCompleted ? 5000 : 7000
       });
 
-      // Save score if pathId and moduleIndex are available
       if (pathId && moduleIndex !== undefined) {
         try {
           await updateLearningPathModuleQuizStatus(pathId, moduleIndex, finalScore, isModuleCompleted);
           toast({
             title: "Progress Saved",
-            description: "Your quiz score has been saved for this module.",
+            description: "Your quiz score and completion status have been saved.",
           });
         } catch (saveError) {
           console.error("Error saving quiz status:", saveError);
@@ -155,9 +154,8 @@ function QuizPageContent() {
 
 
   const handleGoBack = () => {
-    // If pathId exists, we likely came from saved-paths, otherwise from view-plan or directly
     if (pathId) {
-        router.push('/saved-paths'); // Or a more specific path if available
+        router.push('/saved-paths');
     } else if (window.history.length > 2) { 
       router.back();
     } else {
@@ -173,137 +171,154 @@ function QuizPageContent() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
-        <Spinner className="h-12 w-12 text-primary" />
-        <p className="mt-4 text-muted-foreground">Generating your quiz...</p>
+        <Card className="p-8 shadow-xl rounded-xl">
+          <Spinner className="h-16 w-16 text-primary mb-4" />
+          <p className="mt-4 text-xl text-muted-foreground">Generating your quiz questions...</p>
+          <p className="text-sm text-muted-foreground">Hold tight, this will be quick!</p>
+        </Card>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Alert variant="destructive" className="max-w-2xl mx-auto my-10">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error Loading Quiz</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-        <div className="mt-4">
-            <Button onClick={handleGoBack} variant="outline">
-                <ChevronLeft className="mr-2 h-4 w-4" /> Go Back
-            </Button>
-        </div>
-      </Alert>
+      <div className="container mx-auto py-10 px-4 max-w-2xl">
+        <Alert variant="destructive" className="shadow-lg rounded-xl p-6">
+          <AlertCircle className="h-6 w-6" />
+          <AlertTitle className="text-xl">Error Loading Quiz</AlertTitle>
+          <AlertDescription className="text-base mt-1">{error}</AlertDescription>
+          <div className="mt-6">
+              <Button onClick={handleGoBack} variant="outline" className="rounded-lg">
+                  <ChevronLeft className="mr-2 h-5 w-5" /> Go Back
+              </Button>
+          </div>
+        </Alert>
+      </div>
     );
   }
 
   if (questions.length === 0 && !isLoading) {
     return (
-      <Alert className="max-w-2xl mx-auto my-10">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>No Questions Available</AlertTitle>
-        <AlertDescription>The AI couldn't generate questions for this module, or no questions were found. Please try again later or go back.</AlertDescription>
-         <div className="mt-4">
-            <Button onClick={handleGoBack} variant="outline">
-                <ChevronLeft className="mr-2 h-4 w-4" /> Go Back
-            </Button>
-        </div>
-      </Alert>
+      <div className="container mx-auto py-10 px-4 max-w-2xl">
+        <Alert className="shadow-lg rounded-xl p-6 border-primary/30">
+          <Info className="h-6 w-6 text-primary" />
+          <AlertTitle className="text-xl">No Questions Available</AlertTitle>
+          <AlertDescription className="text-base mt-1">The AI couldn't generate questions for this module, or no questions were found. Please try again later or go back.</AlertDescription>
+           <div className="mt-6">
+              <Button onClick={handleGoBack} variant="outline" className="rounded-lg">
+                  <ChevronLeft className="mr-2 h-5 w-5" /> Go Back
+              </Button>
+          </div>
+        </Alert>
+      </div>
     );
   }
   
   const currentQuestion = questions[currentQuestionIndex];
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4">
-      <Card className="shadow-xl border-t-4 border-primary">
-        <CardHeader>
-          <Button onClick={handleGoBack} variant="outline" size="sm" className="absolute top-4 left-4">
-            <ChevronLeft className="mr-1 h-4 w-4" /> Back
-          </Button>
-          <CardTitle className="text-2xl md:text-3xl text-center pt-8">Quiz: {moduleTitle}</CardTitle>
-          {!quizCompleted && (
-            <CardDescription className="text-center text-base">
-              Question {currentQuestionIndex + 1} of {questions.length}
-            </CardDescription>
-          )}
+    <div className="container mx-auto py-8 px-4 max-w-3xl">
+      <Card className="shadow-2xl border-t-4 border-primary rounded-xl overflow-hidden">
+        <CardHeader className="bg-muted/50 p-6 border-b border-border">
+          <div className="flex justify-between items-center">
+            <Button onClick={handleGoBack} variant="outline" size="sm" className="rounded-md">
+              <ChevronLeft className="mr-1 h-4 w-4" /> Back
+            </Button>
+            {!quizCompleted && (
+              <div className="text-right">
+                <p className="text-sm font-medium text-primary">Question {currentQuestionIndex + 1} of {questions.length}</p>
+                <Progress value={((currentQuestionIndex + 1) / questions.length) * 100} className="w-32 h-2.5 mt-1" />
+              </div>
+            )}
+          </div>
+          <CardTitle className="text-3xl md:text-4xl font-bold text-foreground text-center pt-4 leading-tight">{moduleTitle}</CardTitle>
+          <CardDescription className="text-center text-lg text-muted-foreground">Test Your Knowledge</CardDescription>
         </CardHeader>
 
         {!quizCompleted && currentQuestion ? (
           <>
-            <CardContent className="space-y-6 px-6 py-8">
-              <Progress value={((currentQuestionIndex + 1) / questions.length) * 100} className="w-full h-3 mb-6" />
-              <div className="p-6 rounded-lg border bg-background shadow-sm">
-                <p className="font-semibold text-lg mb-4">{currentQuestion.questionText}</p>
+            <CardContent className="space-y-8 px-6 py-10">
+              <div className="p-6 rounded-xl border-2 border-primary/20 bg-background shadow-lg">
+                <p className="font-semibold text-xl md:text-2xl mb-6 text-foreground">{currentQuestion.questionText}</p>
                 <RadioGroup
                   onValueChange={(value) => handleOptionSelect(parseInt(value))}
                   value={selectedOption?.toString()}
-                  className="space-y-3"
+                  className="space-y-4"
                 >
                   {currentQuestion.options.map((option, oIndex) => (
-                    <div key={oIndex} className="flex items-center space-x-3 p-3 rounded-md border hover:bg-muted/50 transition-colors cursor-pointer has-[:checked]:bg-primary/10 has-[:checked]:border-primary">
-                      <RadioGroupItem value={oIndex.toString()} id={`q${currentQuestionIndex}-o${oIndex}`} className="shrink-0" />
-                      <Label htmlFor={`q${currentQuestionIndex}-o${oIndex}`} className="flex-grow cursor-pointer text-base">
-                        {option}
-                      </Label>
-                    </div>
+                    <Label 
+                      key={oIndex} 
+                      htmlFor={`q${currentQuestionIndex}-o${oIndex}`}
+                      className={`flex items-center space-x-3 p-4 rounded-lg border-2  hover:border-primary transition-all duration-200 cursor-pointer
+                                  ${selectedOption === oIndex ? 'border-primary bg-primary/10 ring-2 ring-primary ring-offset-2' : 'border-border bg-card hover:bg-muted/50'}`}
+                    >
+                      <RadioGroupItem value={oIndex.toString()} id={`q${currentQuestionIndex}-o${oIndex}`} className="shrink-0 h-5 w-5" />
+                      <span className="flex-grow text-lg text-foreground">{option}</span>
+                    </Label>
                   ))}
                 </RadioGroup>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-end pt-6 px-6">
-              <Button onClick={handleNextQuestion} size="lg">
+            <CardFooter className="flex justify-end p-6 bg-muted/30 border-t border-border">
+              <Button onClick={handleNextQuestion} size="lg" className="rounded-lg px-8 py-6 text-base">
                 {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Submit Quiz'}
+                <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
             </CardFooter>
           </>
         ) : (
-          // Quiz Completed - Review Mode
-          <CardContent className="space-y-8 px-6 py-8">
-            <div className="text-center p-6 bg-primary/10 rounded-lg w-full mb-8 shadow">
-              <CheckCircle className="h-12 w-12 text-primary mx-auto mb-3" />
-              <h3 className="text-2xl font-semibold mb-2">Quiz Complete!</h3>
-              <p className="text-3xl font-bold text-primary mb-1">Your Score: {score.toFixed(0)}%</p>
-              <p className="text-muted-foreground mb-4">
-                {score >= QUIZ_COMPLETION_THRESHOLD ? "Excellent work! You've demonstrated a strong understanding and completed this module." : "Good effort! Review the material and try again to improve your score."}
+          <CardContent className="space-y-10 px-6 py-10">
+            <div className={`text-center p-8 rounded-xl shadow-xl border-2 ${score >= QUIZ_COMPLETION_THRESHOLD ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+              {score >= QUIZ_COMPLETION_THRESHOLD ? 
+                <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" /> :
+                <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
+              }
+              <h3 className="text-3xl font-bold mb-2">{score >= QUIZ_COMPLETION_THRESHOLD ? 'Quiz Passed!' : 'Needs Improvement!'}</h3>
+              <p className={`text-5xl font-extrabold mb-2 ${score >= QUIZ_COMPLETION_THRESHOLD ? 'text-green-700' : 'text-red-700'}`}>{score.toFixed(0)}%</p>
+              <p className="text-lg text-muted-foreground mb-6">
+                {score >= QUIZ_COMPLETION_THRESHOLD ? "Fantastic work! You've successfully completed this module." : "Good effort! Review the material and try again to master this module."}
               </p>
-              <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button onClick={handleRetakeQuiz} variant="outline">
-                  <RefreshCw className="mr-2 h-4 w-4" /> Retake Quiz
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <Button onClick={handleRetakeQuiz} variant="outline" size="lg" className="rounded-lg border-primary text-primary hover:bg-primary/10">
+                  <RefreshCw className="mr-2 h-5 w-5" /> Retake Quiz
                 </Button>
-                <Button onClick={handleGoBack} >
-                  <ChevronLeft className="mr-2 h-4 w-4" /> Back to Learning Path
+                <Button onClick={handleGoBack} size="lg" className="rounded-lg">
+                  <BookOpen className="mr-2 h-5 w-5" /> Back to Learning Path
                 </Button>
               </div>
             </div>
 
-            <h4 className="text-xl font-semibold text-center text-foreground mb-4">Review Your Answers</h4>
+            <h4 className="text-2xl font-semibold text-center text-foreground mb-6 border-b pb-3">Review Your Answers</h4>
             {questions.map((q, qIndex) => (
-              <div key={qIndex} className={`p-6 rounded-lg border ${userAnswers[qIndex] === q.correctAnswerIndex ? 'border-green-500 bg-green-500/10' : userAnswers[qIndex] !== undefined ? 'border-red-500 bg-red-500/10' : 'bg-card'}`}>
-                <p className="font-semibold text-lg mb-1">Question {qIndex + 1}: {q.questionText}</p>
+              <div key={qIndex} className={`p-6 rounded-xl border-2 shadow-md ${userAnswers[qIndex] === q.correctAnswerIndex ? 'border-green-500/30 bg-green-500/5' : userAnswers[qIndex] !== undefined ? 'border-red-500/30 bg-red-500/5' : 'border-border bg-card'}`}>
+                <p className="font-semibold text-xl mb-2 text-foreground">Question {qIndex + 1}: {q.questionText}</p>
                 <RadioGroup
                   value={userAnswers[qIndex]?.toString()}
                   disabled 
-                  className="space-y-2 mt-3"
+                  className="space-y-3 mt-4"
                 >
                   {q.options.map((option, oIndex) => (
-                    <div key={oIndex} className={`flex items-center space-x-3 p-3 rounded-md border transition-colors 
-                      ${oIndex === q.correctAnswerIndex ? 'border-green-600 bg-green-500/20 text-green-800 font-medium' 
-                      : userAnswers[qIndex] === oIndex && oIndex !== q.correctAnswerIndex ? 'border-red-600 bg-red-500/20 text-red-800' 
-                      : 'bg-background/50'}`}>
-                      <RadioGroupItem value={oIndex.toString()} id={`review-q${qIndex}-o${oIndex}`} className="shrink-0" 
+                    <Label key={oIndex} htmlFor={`review-q${qIndex}-o${oIndex}`} 
+                           className={`flex items-center space-x-3 p-3 rounded-md border transition-colors 
+                      ${oIndex === q.correctAnswerIndex ? 'border-green-600 bg-green-500/10 text-green-800 font-medium' 
+                      : userAnswers[qIndex] === oIndex && oIndex !== q.correctAnswerIndex ? 'border-red-600 bg-red-500/10 text-red-800 font-medium' 
+                      : 'border-border bg-background/50 text-muted-foreground'}`}>
+                      <RadioGroupItem value={oIndex.toString()} id={`review-q${qIndex}-o${oIndex}`} className="shrink-0 h-5 w-5" 
                         checked={userAnswers[qIndex] === oIndex} 
                       />
-                      <Label htmlFor={`review-q${qIndex}-o${oIndex}`} className="flex-grow text-base">
+                      <span className="flex-grow text-base">
                         {option}
-                        {oIndex === q.correctAnswerIndex && <span className="ml-2 text-green-700 font-semibold">(Correct Answer)</span>}
-                        {userAnswers[qIndex] === oIndex && oIndex !== q.correctAnswerIndex && <span className="ml-2 text-red-700 font-semibold">(Your Answer)</span>}
-                      </Label>
-                    </div>
+                        {oIndex === q.correctAnswerIndex && <span className="ml-2 text-xs py-0.5 px-1.5 rounded bg-green-600 text-white font-semibold">(Correct)</span>}
+                        {userAnswers[qIndex] === oIndex && oIndex !== q.correctAnswerIndex && <span className="ml-2 text-xs py-0.5 px-1.5 rounded bg-red-600 text-white font-semibold">(Your Answer)</span>}
+                      </span>
+                    </Label>
                   ))}
                 </RadioGroup>
                 {q.explanation && (
-                  <div className="mt-4 pt-3 border-t border-border/50">
-                     <p className="text-sm text-muted-foreground flex items-start">
-                       <Info size={18} className="mr-2 mt-0.5 text-primary flex-shrink-0" /> 
-                       <span><span className="font-semibold text-foreground">Explanation:</span> {q.explanation}</span>
+                  <div className="mt-5 pt-4 border-t border-border/50">
+                     <p className="text-md text-muted-foreground flex items-start">
+                       <Info size={20} className="mr-2.5 mt-0.5 text-primary flex-shrink-0" /> 
+                       <span><strong className="font-semibold text-foreground">Explanation:</strong> {q.explanation}</span>
                     </p>
                   </div>
                 )}
@@ -316,17 +331,15 @@ function QuizPageContent() {
   );
 }
 
-
 export default function QuizPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-screen">
-        <Spinner className="h-10 w-10 text-primary" />
+        <Spinner className="h-12 w-12 text-primary" />
+         <p className="ml-4 text-xl text-muted-foreground">Loading Quiz...</p>
       </div>
     }>
       <QuizPageContent />
     </Suspense>
   );
 }
-
-    

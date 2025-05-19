@@ -6,15 +6,15 @@ import { useRouter } from 'next/navigation';
 import Link from "next/link";
 import { useLearningPath } from "@/context/learning-path-context";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
-import { saveLearningPath, type SavedModuleDetailedContent, type SavedLearningPath } from "@/services/learningPathService"; // Added SavedLearningPath type
+import { saveLearningPath, type SavedModuleDetailedContent, type SavedLearningPath } from "@/services/learningPathService";
 import { useAuth } from "@/context/auth-context";
 import { LearningPathDisplay } from "@/components/learning-path-display";
 import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Save, FilePlus, LogIn, Home } from "lucide-react";
+import { AlertCircle, Save, FilePlus, LogIn, Home, Sparkles, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +31,7 @@ import { auth } from '@/lib/firebase';
 
 type ModuleContentState = {
   isLoading: boolean;
-  sections: GenerateModuleContentOutput['sections'] | null; // Array of sections
+  sections: GenerateModuleContentOutput['sections'] | null;
   error: string | null;
 };
 
@@ -45,15 +45,17 @@ export default function ViewPlanPage() {
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showSaveSignInDialog, setShowSaveSignInDialog] = useState(false);
+  const [isPlanSaved, setIsPlanSaved] = useState(false);
+
 
   useEffect(() => {
     if (!authLoading && (!pathData || !formInput)) {
       const timer = setTimeout(() => {
-        if (!pathData || !formInput) {
+        if (!pathData || !formInput) { // Re-check inside timeout
             toast({ title: "No Plan Active", description: "Please generate a learning plan first.", variant: "destructive" });
             router.replace('/');
         }
-      }, 200);
+      }, 200); // Short delay to allow context to populate
       return () => clearTimeout(timer);
     }
   }, [pathData, formInput, router, toast, authLoading]);
@@ -148,8 +150,7 @@ export default function ViewPlanPage() {
         title: "Plan Saved!",
         description: "Your learning path has been saved. You can find it in 'My Paths'.",
       });
-      // Optionally redirect or clear context. For now, user stays.
-      // To prevent re-saving, could disable button or mark plan as saved.
+      setIsPlanSaved(true); // Mark plan as saved
     } catch (e) {
       console.error("Error saving learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
@@ -174,12 +175,14 @@ export default function ViewPlanPage() {
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 flex flex-col justify-center items-center">
-          <Spinner className="h-12 w-12 text-primary mb-4" />
-          <p className="text-muted-foreground">Loading learning plan...</p>
-           <p className="text-sm text-muted-foreground mt-2">If you see this for a long time, try creating a new plan.</p>
-            <Button onClick={() => router.replace('/')} variant="outline" className="mt-6">
-                <Home className="mr-2 h-4 w-4" /> Go to Homepage
+          <Card className="p-8 shadow-xl rounded-xl">
+            <Spinner className="h-16 w-16 text-primary mb-4" />
+            <p className="text-xl text-muted-foreground mt-2">Loading learning plan...</p>
+            <p className="text-sm text-muted-foreground mt-1">If this takes too long, try creating a new plan.</p>
+            <Button onClick={() => router.replace('/')} variant="outline" className="mt-6 rounded-lg">
+                <Home className="mr-2 h-5 w-5" /> Go to Homepage
             </Button>
+          </Card>
         </main>
         <Footer />
       </div>
@@ -187,78 +190,85 @@ export default function ViewPlanPage() {
   }
   
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/40">
       <Header />
-      <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-semibold text-foreground mb-1">
-              Your Personalized Learning Path
-            </h1>
-            <p className="text-lg text-muted-foreground">
-               Goal: <span className="font-medium text-primary">{formInput.learningGoal}</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-3 mt-4 sm:mt-0">
-             {!authLoading && user && ( // Only show save if auth state is determined AND user is logged in
-                <Button onClick={handleSavePlan} disabled={isSavingPlan} size="lg" className="shadow-md">
-                  {isSavingPlan ? (
-                    <>
-                      <Spinner className="mr-2 h-5 w-5" /> Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-5 w-5" /> Save Plan
-                    </>
+      <main className="flex-grow container mx-auto px-4 py-10 md:py-16 max-w-5xl">
+        <Card className="shadow-2xl rounded-xl border-t-4 border-primary overflow-hidden">
+          <CardHeader className="p-6 md:p-8 bg-muted/50 border-b border-border">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex-grow">
+                <p className="text-sm font-medium text-primary mb-1">Your Personalized Learning Path</p>
+                <CardTitle className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
+                  {formInput.learningGoal}
+                </CardTitle>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto flex-col sm:flex-row">
+                {!authLoading && user && !isPlanSaved && (
+                    <Button onClick={handleSavePlan} disabled={isSavingPlan} size="lg" className="w-full sm:w-auto rounded-lg shadow-md hover:shadow-primary/30">
+                      {isSavingPlan ? (
+                        <>
+                          <Spinner className="mr-2 h-5 w-5" /> Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-5 w-5" /> Save This Plan
+                        </>
+                      )}
+                    </Button>
                   )}
+                  {!authLoading && user && isPlanSaved && (
+                     <Button disabled size="lg" className="w-full sm:w-auto rounded-lg bg-green-600 hover:bg-green-700">
+                        <CheckCircle className="mr-2 h-5 w-5" /> Plan Saved!
+                    </Button>
+                  )}
+                   {!authLoading && !user && (
+                    <Button onClick={() => setShowSaveSignInDialog(true)} size="lg" className="w-full sm:w-auto rounded-lg shadow-md">
+                        <LogIn className="mr-2 h-5 w-5" /> Sign In to Save
+                    </Button>
+                  )}
+                <Button
+                  onClick={handleCreateNewPlan}
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto rounded-lg shadow-md"
+                >
+                  <FilePlus className="mr-2 h-5 w-5" /> Create New Plan
                 </Button>
-              )}
-               {!authLoading && !user && ( // Show Sign In to Save if not logged in
-                <Button onClick={() => setShowSaveSignInDialog(true)} size="lg" className="shadow-md">
-                    <LogIn className="mr-2 h-5 w-5" /> Sign In to Save
-                </Button>
-              )}
-            <Button
-              onClick={handleCreateNewPlan}
-              variant="outline"
-              size="lg"
-              className="shadow-md"
-            >
-              <FilePlus className="mr-2 h-5 w-5" /> New Plan
-            </Button>
-          </div>
-        </div>
+              </div>
+            </div>
+          </CardHeader>
 
+          <CardContent className="p-6 md:p-8">
+            {pageError && (
+              <Alert variant="destructive" className="mb-6 shadow-md rounded-lg p-4">
+                <AlertCircle className="h-5 w-5" />
+                <AlertTitle className="text-lg">Oops! Something went wrong.</AlertTitle>
+                <AlertDescription className="text-base mt-0.5">{pageError}</AlertDescription>
+              </Alert>
+            )}
 
-        {pageError && (
-          <Alert variant="destructive" className="mb-6 shadow-md">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Oops! Something went wrong.</AlertTitle>
-            <AlertDescription>{pageError}</AlertDescription>
-          </Alert>
-        )}
-
-        <LearningPathDisplay
-          path={pathData}
-          learningGoal={formInput.learningGoal} // Pass learningGoal
-          moduleContents={moduleContents}
-          onGenerateModuleContent={handleGenerateModuleContent}
-        />
-        
+            <LearningPathDisplay
+              path={pathData}
+              learningGoal={formInput.learningGoal}
+              moduleContents={moduleContents}
+              onGenerateModuleContent={handleGenerateModuleContent}
+            />
+          </CardContent>
+        </Card>
       </main>
 
       <AlertDialog open={showSaveSignInDialog} onOpenChange={setShowSaveSignInDialog}>
-          <AlertDialogContent>
+          <AlertDialogContent className="rounded-xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>Sign In to Save</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="text-2xl">Sign In to Save</AlertDialogTitle>
+              <AlertDialogDescription className="text-base">
                 Please sign in with your Google account to save your learning path.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleSaveSignInFromDialog}>
-                <LogIn className="mr-2 h-4 w-4" /> Sign In with Google
+            <AlertDialogFooter className="mt-2">
+              <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSaveSignInFromDialog} className="rounded-lg">
+                <LogIn className="mr-2 h-5 w-5" /> Sign In with Google
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -272,18 +282,23 @@ export default function ViewPlanPage() {
 
 function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center justify-between max-w-6xl">
-        <Link href="/" className="flex items-center">
-          <div className="bg-primary text-primary-foreground p-2 rounded-md shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between max-w-5xl px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center group">
+          <div className="bg-primary text-primary-foreground p-2.5 rounded-lg shadow-md transition-transform group-hover:scale-105">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
               <path d="M2 17l10 5 10-5"></path>
               <path d="M2 12l10 5 10-5"></path>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
+          <h1 className="text-3xl font-bold text-primary ml-3 tracking-tight">PathAInder</h1>
         </Link>
+        <Button variant="ghost" asChild className="rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10">
+            <Link href="/saved-paths">
+              <BookCopy className="mr-2 h-5 w-5" /> My Paths
+            </Link>
+        </Button>
       </div>
     </header>
   );
@@ -291,10 +306,11 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="text-center py-6 border-t bg-muted">
-      <div className="container mx-auto px-4 md:px-6">
-        <p className="text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} PathAInder. All rights reserved. Powered by AI.
+    <footer className="text-center py-8 border-t border-border/60 bg-background">
+       <div className="container mx-auto px-4 md:px-6">
+        <p className="text-md text-muted-foreground">
+          &copy; {new Date().getFullYear()} PathAInder. All rights reserved. 
+           Powered by <span className="font-semibold text-primary">AI</span> with <span className="text-accent">inspiration</span>.
         </p>
       </div>
     </footer>

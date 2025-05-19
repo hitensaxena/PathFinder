@@ -2,8 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from 'next/navigation'; // Added for redirection
-import { useLearningPath } from "@/context/learning-path-context"; // Added context hook
+import { useRouter } from 'next/navigation';
+import { useLearningPath } from "@/context/learning-path-context";
 import { generateLearningPath, type GenerateLearningPathInput } from "@/ai/flows/generate-learning-path";
 import { useAuth } from "@/context/auth-context";
 import { LearningInputForm } from "@/components/learning-input-form";
@@ -11,7 +11,7 @@ import { AuthButtons } from "@/components/auth-buttons";
 import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AlertCircle, LogIn, Lightbulb, Sparkles, Youtube, ChevronRight } from "lucide-react";
+import { AlertCircle, LogIn, Lightbulb, Sparkles, Youtube, ChevronRight, Target, Activity, BookOpen, CheckSquare } from "lucide-react";
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -31,8 +31,8 @@ import { auth } from '@/lib/firebase';
 export default function PathAInderPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const router = useRouter(); // For navigation
-  const { setGeneratedPath } = useLearningPath(); // Context function
+  const router = useRouter();
+  const { setGeneratedPath } = useLearningPath();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,12 +68,12 @@ export default function PathAInderPage() {
     
     try {
       const result = await generateLearningPath(data);
-      setGeneratedPath(result, data); // Store in context
+      setGeneratedPath(result, data);
       toast({
         title: "Learning Path Generated!",
         description: "Redirecting to view your personalized learning path...",
       });
-      router.push('/view-plan'); // Navigate to the new page
+      router.push('/view-plan');
     } catch (e) {
       console.error("Error generating learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while generating your learning path. Please try again.";
@@ -84,99 +84,100 @@ export default function PathAInderPage() {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false); // Loader on this page stops once navigation happens or on error
+      setIsLoading(false);
     }
   };
   
   const scrollToForm = () => {
-    document.getElementById('learning-form-section')?.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('learning-form-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between max-w-6xl">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/50">
+       <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center">
-            <div className="bg-primary text-primary-foreground p-2 rounded-md shadow-sm">
+            <div className="bg-primary text-primary-foreground p-2.5 rounded-lg shadow-md">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
                 <path d="M2 17l10 5 10-5"></path>
                 <path d="M2 12l10 5 10-5"></path>
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
+            <h1 className="text-3xl font-bold text-primary ml-3 tracking-tight">PathAInder</h1>
           </div>
           <AuthButtons />
         </div>
       </header>
 
       <main className="flex-grow">
-        {/* SaaS Landing Page Content */}
-        {!isLoading && ( // Only show landing or form if not actively generating path on this page
+        {!isLoading && (
           <>
             {/* Hero Section */}
-            <section className="py-16 md:py-24 bg-gradient-to-br from-primary/10 via-background to-background">
-              <div className="container mx-auto px-4 md:px-6 max-w-4xl text-center">
-                <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
-                  Unlock Your Potential with AI-Powered Learning Paths
+            <section className="py-20 md:py-32 bg-gradient-to-br from-primary/5 via-background to-background">
+              <div className="container mx-auto px-4 md:px-6 max-w-5xl text-center">
+                <h1 className="text-5xl md:text-7xl font-extrabold text-foreground mb-6 leading-tight">
+                  Chart Your Course to Mastery with <span className="text-primary">AI-Powered</span> Learning
                 </h1>
-                <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                  Stop wandering aimlessly. PathAInder crafts personalized, step-by-step roadmaps to help you achieve your learning goals faster and smarter.
+                <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto">
+                  PathAInder intelligently crafts personalized learning roadmaps, guiding you step-by-step towards your goals. Say goodbye to confusion and hello to clarity.
                 </p>
-                <Button size="lg" onClick={scrollToForm} className="shadow-lg">
-                  Get Your Free Learning Plan <ChevronRight className="ml-2 h-5 w-5" />
+                <Button size="lg" onClick={scrollToForm} className="rounded-full px-10 py-7 text-lg font-semibold shadow-lg hover:shadow-primary/30 transition-all duration-300">
+                  Design Your Learning Path <ChevronRight className="ml-2 h-6 w-6" />
                 </Button>
-                <div className="mt-12">
+                <div className="mt-16 relative">
+                   <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 rounded-lg"></div>
                   <Image 
-                    src="https://placehold.co/800x450.png" 
-                    alt="Dashboard showing a personalized learning path"
-                    data-ai-hint="learning dashboard"
-                    width={800} 
-                    height={450} 
-                    className="rounded-lg shadow-2xl object-cover mx-auto"
+                    src="https://placehold.co/1000x500.png" 
+                    alt="Stylized dashboard showing a personalized learning path with progress indicators"
+                    data-ai-hint="learning path dashboard"
+                    width={1000} 
+                    height={500} 
+                    className="rounded-xl shadow-2xl object-cover mx-auto"
+                    priority
                   />
                 </div>
               </div>
             </section>
 
             {/* Features Section */}
-            <section className="py-16 md:py-24">
-              <div className="container mx-auto px-4 md:px-6 max-w-5xl">
-                <h2 className="text-3xl md:text-4xl font-semibold text-foreground text-center mb-4">Why Choose PathAInder?</h2>
-                <p className="text-lg text-muted-foreground text-center mb-12">Discover the features that make learning with AI effective and engaging.</p>
+            <section className="py-20 md:py-28 bg-background">
+              <div className="container mx-auto px-4 md:px-6 max-w-6xl">
+                <h2 className="text-4xl md:text-5xl font-bold text-foreground text-center mb-6">Why PathAInder?</h2>
+                <p className="text-lg text-muted-foreground text-center mb-16 max-w-2xl mx-auto">Unlock a smarter way to learn with features designed for focus and growth.</p>
                 <div className="grid md:grid-cols-3 gap-8">
-                  <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <CardHeader>
-                      <div className="p-3 bg-primary/10 rounded-full w-fit mb-3">
-                        <Lightbulb className="h-8 w-8 text-primary" />
+                  <Card className="shadow-xl hover:shadow-primary/20 transition-shadow duration-300 border-t-4 border-primary bg-card rounded-xl overflow-hidden">
+                    <CardHeader className="items-center text-center">
+                      <div className="p-4 bg-primary/10 rounded-full w-fit mb-4">
+                        <Target className="h-10 w-10 text-primary" />
                       </div>
-                      <CardTitle>Personalized Roadmaps</CardTitle>
+                      <CardTitle className="text-2xl">Personalized Roadmaps</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-muted-foreground">Tell us your goal, current knowledge, and learning style. Our AI crafts a unique path tailored to you.</p>
+                    <CardContent className="text-center">
+                      <p className="text-muted-foreground">Input your goal, knowledge, and style. Our AI crafts a unique path, just for you.</p>
                     </CardContent>
                   </Card>
-                  <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <CardHeader>
-                       <div className="p-3 bg-primary/10 rounded-full w-fit mb-3">
-                        <Sparkles className="h-8 w-8 text-primary" />
+                  <Card className="shadow-xl hover:shadow-primary/20 transition-shadow duration-300 border-t-4 border-primary bg-card rounded-xl overflow-hidden">
+                    <CardHeader className="items-center text-center">
+                       <div className="p-4 bg-primary/10 rounded-full w-fit mb-4">
+                        <Sparkles className="h-10 w-10 text-primary" />
                       </div>
-                      <CardTitle>AI-Generated Content</CardTitle>
+                      <CardTitle className="text-2xl">AI-Generated Content</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-muted-foreground">Dive deeper with detailed explanations and concepts for each module, generated on demand.</p>
+                    <CardContent className="text-center">
+                      <p className="text-muted-foreground">Dive deep with detailed explanations for each module, generated by AI on demand.</p>
                     </CardContent>
                   </Card>
-                  <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <CardHeader>
-                      <div className="p-3 bg-primary/10 rounded-full w-fit mb-3">
-                        <Youtube className="h-8 w-8 text-primary" />
+                  <Card className="shadow-xl hover:shadow-primary/20 transition-shadow duration-300 border-t-4 border-primary bg-card rounded-xl overflow-hidden">
+                    <CardHeader className="items-center text-center">
+                      <div className="p-4 bg-primary/10 rounded-full w-fit mb-4">
+                        <CheckSquare className="h-10 w-10 text-primary" />
                       </div>
-                      <CardTitle>Curated Video Suggestions</CardTitle>
+                      <CardTitle className="text-2xl">Knowledge Quizzes</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-muted-foreground">Get targeted YouTube search queries for each section to find the best video resources quickly.</p>
+                    <CardContent className="text-center">
+                      <p className="text-muted-foreground">Test your understanding with AI-generated quizzes and track your module completion.</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -184,124 +185,117 @@ export default function PathAInderPage() {
             </section>
 
             {/* How It Works Section */}
-            <section className="py-16 md:py-24 bg-muted">
-              <div className="container mx-auto px-4 md:px-6 max-w-4xl">
-                <h2 className="text-3xl md:text-4xl font-semibold text-foreground text-center mb-12">Get Started in 3 Simple Steps</h2>
-                <div className="grid md:grid-cols-3 gap-8 text-center">
-                  <div className="p-6">
-                    <div className="flex items-center justify-center mb-4">
-                      <div className="bg-primary text-primary-foreground rounded-full h-12 w-12 flex items-center justify-center text-xl font-bold shadow-md">1</div>
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-2">Define Your Goal</h3>
-                    <p className="text-muted-foreground">Tell us what you want to learn and your current understanding.</p>
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center justify-center mb-4">
-                       <div className="bg-primary text-primary-foreground rounded-full h-12 w-12 flex items-center justify-center text-xl font-bold shadow-md">2</div>
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-2">Generate Your Path</h3>
-                    <p className="text-muted-foreground">Our AI instantly creates a structured learning plan with modules.</p>
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center justify-center mb-4">
-                       <div className="bg-primary text-primary-foreground rounded-full h-12 w-12 flex items-center justify-center text-xl font-bold shadow-md">3</div>
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-2">Start Learning</h3>
-                    <p className="text-muted-foreground">Explore modules, generate content, and track your progress.</p>
+            <section className="py-20 md:py-28 bg-muted/70">
+              <div className="container mx-auto px-4 md:px-6 max-w-5xl">
+                <h2 className="text-4xl md:text-5xl font-bold text-foreground text-center mb-16">Launch Your Learning in 3 Steps</h2>
+                <div className="relative">
+                  {/* Connecting line (for larger screens) */}
+                  <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-primary/30 transform -translate-y-1/2 -z-10 mx-16"></div>
+                  
+                  <div className="grid md:grid-cols-3 gap-10 text-center relative">
+                    {[
+                      { num: 1, title: "Define Your Goal", desc: "Tell us what you want to learn and your current expertise.", icon: <Target className="h-8 w-8 text-primary" /> },
+                      { num: 2, title: "Generate Your Path", desc: "Our AI instantly crafts a structured, step-by-step learning plan.", icon: <Activity className="h-8 w-8 text-primary" /> },
+                      { num: 3, title: "Start Learning", desc: "Explore modules, generate content, take quizzes, and master new skills.", icon: <BookOpen className="h-8 w-8 text-primary" /> }
+                    ].map((step, idx) => (
+                      <div key={idx} className="bg-card p-8 rounded-xl shadow-lg flex flex-col items-center relative z-0">
+                        <div className="bg-primary text-primary-foreground rounded-full h-16 w-16 flex items-center justify-center text-2xl font-bold shadow-md mb-6 ring-4 ring-primary/20">
+                          {step.num}
+                        </div>
+                         <div className="mb-4 text-primary">{step.icon}</div>
+                        <h3 className="text-2xl font-semibold text-foreground mb-3">{step.title}</h3>
+                        <p className="text-muted-foreground">{step.desc}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             </section>
             
             {/* Testimonial Section (Placeholder) */}
-            <section className="py-16 md:py-24">
-              <div className="container mx-auto px-4 md:px-6 max-w-4xl text-center">
-                <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-12">Loved by Learners Worldwide</h2>
-                <div className="grid md:grid-cols-2 gap-8">
-                  <Card className="bg-card p-6 shadow-lg">
-                    <CardContent className="pt-6">
-                      <p className="text-muted-foreground mb-4">"PathAInder made learning web development so much less daunting. The structured path was a lifesaver!"</p>
+            <section className="py-20 md:py-28 bg-background">
+              <div className="container mx-auto px-4 md:px-6 max-w-5xl text-center">
+                <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-16">Loved by Learners Like You</h2>
+                <div className="grid md:grid-cols-2 gap-10">
+                  {[
+                    { name: "Alex P.", role: "Aspiring Developer", quote: "PathAInder made learning web development so much less daunting. The structured path was a lifesaver!", hint: "person programmer" },
+                    { name: "Sarah K.", role: "Data Scientist", quote: "The AI-generated content and video suggestions helped me grasp complex topics much faster. Highly recommended!", hint: "person data" }
+                  ].map((testimonial, idx) => (
+                  <Card key={idx} className="bg-card p-8 rounded-xl shadow-lg border-l-4 border-accent">
+                    <CardContent className="pt-0 text-left">
+                      <p className="text-lg text-muted-foreground mb-6 italic">"{testimonial.quote}"</p>
                       <div className="flex items-center">
-                        <Image src="https://placehold.co/40x40.png" alt="User Avatar" data-ai-hint="person avatar" width={40} height={40} className="rounded-full mr-3" />
+                        <Image src={`https://placehold.co/50x50.png`} alt="User Avatar" data-ai-hint={testimonial.hint} width={50} height={50} className="rounded-full mr-4 border-2 border-primary/50" />
                         <div>
-                          <p className="font-semibold text-foreground">Alex P.</p>
-                          <p className="text-sm text-muted-foreground">Aspiring Developer</p>
+                          <p className="font-semibold text-xl text-foreground">{testimonial.name}</p>
+                          <p className="text-md text-accent">{testimonial.role}</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-card p-6 shadow-lg">
-                     <CardContent className="pt-6">
-                      <p className="text-muted-foreground mb-4">"The AI-generated content and video suggestions helped me grasp complex topics much faster. Highly recommended!"</p>
-                       <div className="flex items-center">
-                        <Image src="https://placehold.co/40x40.png" alt="User Avatar" data-ai-hint="person avatar" width={40} height={40} className="rounded-full mr-3" />
-                        <div>
-                          <p className="font-semibold text-foreground">Sarah K.</p>
-                          <p className="text-sm text-muted-foreground">Data Scientist</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  ))}
                 </div>
               </div>
             </section>
 
             {/* CTA/Form Section */}
-            <section id="learning-form-section" className="py-16 md:py-24 bg-primary/5">
-              <div className="container mx-auto px-4 md:px-6 max-w-2xl">
-                 <h2 className="text-3xl md:text-4xl font-semibold text-foreground text-center mb-4">Ready to Start Your Learning Journey?</h2>
-                 <p className="text-lg text-muted-foreground text-center mb-8">Fill out the form below to get your personalized AI-generated learning path.</p>
+            <section id="learning-form-section" className="py-20 md:py-28 bg-gradient-to-b from-muted/70 to-primary/10">
+              <div className="container mx-auto px-4 md:px-6 max-w-3xl">
+                 <div className="text-center mb-12">
+                    <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Ready to Forge Your Path?</h2>
+                    <p className="text-xl text-muted-foreground max-w-xl mx-auto">Fill out the form below to get your personalized AI-generated learning roadmap.</p>
+                 </div>
                 <LearningInputForm onSubmit={handleGeneratePlan} isLoading={isLoading} />
               </div>
             </section>
           </>
         )}
 
-        {/* Loading indicator for path generation */}
         {isLoading && (
-          <div className="container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl">
-            <div className="flex flex-col justify-center items-center mt-12 space-y-4">
-              <Spinner className="h-12 w-12 text-primary" />
-              <p className="text-lg text-muted-foreground">
+          <div className="container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl h-screen flex flex-col justify-center items-center">
+            <div className="bg-card p-10 rounded-xl shadow-2xl flex flex-col items-center">
+              <Spinner className="h-16 w-16 text-primary mb-6" />
+              <p className="text-xl text-muted-foreground font-medium">
                 Crafting your personalized learning path...
               </p>
+              <p className="text-sm text-muted-foreground mt-2">This might take a moment, great things are on their way!</p>
             </div>
           </div>
         )}
 
-        {/* Error display for path generation */}
         {error && !isLoading && (
            <div className="container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl">
-            <Alert variant="destructive" className="mt-8 shadow-md">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Oops! Something went wrong.</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
+            <Alert variant="destructive" className="mt-8 shadow-md p-6">
+              <AlertCircle className="h-6 w-6" />
+              <AlertTitle className="text-xl">Oops! Something Went Wrong</AlertTitle>
+              <AlertDescription className="text-base mt-1">{error}</AlertDescription>
             </Alert>
           </div>
         )}
 
         <AlertDialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
-          <AlertDialogContent>
+          <AlertDialogContent className="rounded-xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>Sign In Required</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="text-2xl">Sign In Required</AlertDialogTitle>
+              <AlertDialogDescription className="text-base">
                 Please sign in with your Google account to generate and save your personalized learning path.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleSignInFromDialog}>
-                <LogIn className="mr-2 h-4 w-4" /> Sign In with Google
+            <AlertDialogFooter className="mt-2">
+              <AlertDialogCancel className="rounded-lg">Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSignInFromDialog} className="rounded-lg">
+                <LogIn className="mr-2 h-5 w-5" /> Sign In with Google
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
       </main>
-      <footer className="text-center py-6 border-t bg-muted">
+      <footer className="text-center py-8 border-t border-border/60 bg-background">
          <div className="container mx-auto px-4 md:px-6">
-          <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} PathAInder. All rights reserved. Powered by AI.
+          <p className="text-md text-muted-foreground">
+            &copy; {new Date().getFullYear()} PathAInder. All rights reserved.
+             Powered by <span className="font-semibold text-primary">AI</span> with <span className="text-accent">♥</span>
           </p>
         </div>
       </footer>
