@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from 'next/navigation';
-import { headers } from 'next/headers';
+// import { headers } from 'next/headers';
 import { useLearningPath } from "@/context/learning-path-context";
 import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
 import { useAuth } from "@/context/auth-context";

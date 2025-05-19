@@ -238,7 +238,6 @@ export default function ViewPlanPage() {
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/40">
-      <Header />
       <main className="flex-grow container mx-auto px-4 py-10 md:py-16 max-w-5xl">
         <div className="text-center mb-12 md:mb-16">
           <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-3 flex items-center justify-center">
@@ -303,8 +302,6 @@ export default function ViewPlanPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-      <Footer />
     </div>
   );
 }

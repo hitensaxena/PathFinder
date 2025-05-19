@@ -9,7 +9,6 @@ const Header = () => {
         <Link href="/" className="text-2xl font-bold text-primary">PathFinder</Link>
         <nav>
           <ul className="flex items-center space-x-4">
-            <li><Link href="/library" className="hover:underline">Library</Link></li>
             <li><AuthButtons /></li>
           </ul>
         </nav>

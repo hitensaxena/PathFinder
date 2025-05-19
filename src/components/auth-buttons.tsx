@@ -56,10 +56,10 @@ export function AuthButtons() {
     <div className="flex items-center space-x-2">
       {user ? (
         <>
-          {user.displayName && <span className="mr-2 text-sm text-muted-foreground hidden sm:inline">Welcome, {user.displayName.split(" ")[0]}!</span>}
+          {user.displayName && <span className="mr-2 text-sm text-muted-foreground hidden sm:inline">{user.displayName.split(" ")[0]}!</span>}
           <Button variant="ghost" size="sm" asChild>
             <Link href="/library">
-              <BookCopy className="mr-2 h-4 w-4" /> My Paths
+              <BookCopy className="mr-2 h-4 w-4" /> Library
             </Link>
           </Button>
           <Button variant="outline" onClick={handleSignOut} size="sm">

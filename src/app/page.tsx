@@ -14,78 +14,7 @@ export default function PathAInderPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-md">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                <path d="M2 17l10 5 10-5"></path>
-                <path d="M2 12l10 5 10-5"></path>
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-primary tracking-tight">PathAInder</h1>
-          </div>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6">
-            <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-              How It Works
-            </a>
-            <a href="#benefits" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-              Benefits
-            </a>
-            <a href="#success-stories" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-              Success Stories
-            </a>
-            <a href="#faq" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-              FAQ
-            </a>
-            {/* Auth Buttons (login/logout, saved paths) */}
-            <div className="ml-4">
-              <AuthButtons />
-            </div>
-          </nav>
-
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? (
-              <X className="h-6 w-6 text-muted-foreground" />
-            ) : (
-              <Menu className="h-6 w-6 text-muted-foreground" />
-            )}
-          </button>
-        </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden border-t border-border/60 bg-background/95 backdrop-blur-lg">
-            <nav className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4">
-              <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>
-                How It Works
-              </a>
-              <a href="#benefits" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>
-                Benefits
-              </a>
-              <a href="#success-stories" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>
-                Success Stories
-              </a>
-              <a href="#faq" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>
-                FAQ
-              </a>
-              {/* Auth Buttons (login/logout, saved paths) for mobile */}
-              <div className="mt-2">
-                <AuthButtons />
-              </div>
-            </nav>
-          </div>
-        )}
-      </header>
-
+ 
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative py-20 md:py-32 overflow-hidden">
