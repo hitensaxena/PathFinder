@@ -111,9 +111,10 @@ export default function ViewPlanPage() {
       });
       setShowSaveSignInDialog(false);
       // Potentially re-trigger save after successful sign-in
-      if (user && pathData && formInput) { // Check if user is now available
-         handleSavePlan();
-      }
+      // Check if user is now available by checking useAuth().user directly after sign in
+      // Forcing a re-check of user state after popup often requires a slight delay or state update
+      // For simplicity, we assume user state will update, then they can click save again.
+      // A more robust solution might involve a callback that re-triggers save.
     } catch (error) {
       console.error('Error signing in with Google:', error);
       toast({
@@ -154,6 +155,8 @@ export default function ViewPlanPage() {
         title: "Plan Saved!",
         description: "Your learning path has been saved. You can find it in 'My Paths'.",
       });
+      // Optionally redirect to saved paths or clear context
+      // For now, keeps user on page to review or generate more content
     } catch (e) {
       console.error("Error saving learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
@@ -195,12 +198,40 @@ export default function ViewPlanPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl">
-        <h1 className="text-3xl md:text-4xl font-semibold text-foreground mb-3 text-center">
-          Your Personalized Learning Path
-        </h1>
-        <p className="text-lg text-muted-foreground mb-8 text-center">
-           Goal: <span className="font-medium text-primary">{formInput.learningGoal}</span>
-        </p>
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-semibold text-foreground mb-1">
+              Your Personalized Learning Path
+            </h1>
+            <p className="text-lg text-muted-foreground">
+               Goal: <span className="font-medium text-primary">{formInput.learningGoal}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-3 mt-4 sm:mt-0">
+             {!authLoading && ( // Only show save if auth state is determined
+                <Button onClick={handleSavePlan} disabled={isSavingPlan || authLoading} size="lg" className="shadow-md">
+                  {isSavingPlan ? (
+                    <>
+                      <Spinner className="mr-2 h-5 w-5" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-5 w-5" /> Save Plan
+                    </>
+                  )}
+                </Button>
+              )}
+            <Button
+              onClick={handleCreateNewPlan}
+              variant="outline"
+              size="lg"
+              className="shadow-md"
+            >
+              <FilePlus className="mr-2 h-5 w-5" /> New Plan
+            </Button>
+          </div>
+        </div>
+
 
         {pageError && (
           <Alert variant="destructive" className="mb-6 shadow-md">
@@ -215,29 +246,9 @@ export default function ViewPlanPage() {
           moduleContents={moduleContents}
           onGenerateModuleContent={handleGenerateModuleContent}
         />
+        
+        {/* Moved action buttons to the top section */}
 
-        <div className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
-          <Button
-            onClick={handleCreateNewPlan}
-            variant="outline"
-            size="lg"
-          >
-            <FilePlus className="mr-2 h-5 w-5" /> Create a New Plan
-          </Button>
-          {!authLoading && ( // Only show save if auth state is determined
-            <Button onClick={handleSavePlan} disabled={isSavingPlan || authLoading} size="lg">
-              {isSavingPlan ? (
-                <>
-                  <Spinner className="mr-2 h-5 w-5" /> Saving Plan...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-5 w-5" /> Save This Plan
-                </>
-              )}
-            </Button>
-          )}
-        </div>
       </main>
 
       <AlertDialog open={showSaveSignInDialog} onOpenChange={setShowSaveSignInDialog}>
@@ -295,3 +306,4 @@ function Footer() {
     </footer>
   );
 }
+

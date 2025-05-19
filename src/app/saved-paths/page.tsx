@@ -8,13 +8,13 @@ import {
   getUserLearningPaths, 
   updateLearningPathModuleDetail, 
   deleteLearningPath,
-  updateLearningPathGoal,
+  updateLearningPathGoal, // Added
   type SavedLearningPath, 
-  type SavedModuleDetailedContent // Updated to expect section-based content
+  type SavedModuleDetailedContent 
 } from "@/services/learningPathService";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { LearningPathDisplay } from "@/components/learning-path-display";
-import { SavedPathCardActions } from "@/components/saved-path-card-actions";
+import { SavedPathCardActions } from "@/components/saved-path-card-actions"; // Added
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,14 +23,12 @@ import { AlertCircle, BookCopy, LogIn, ListChecks } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 
-// Represents the state for a single module's detailed content, now section-based
 type ModuleContentState = {
   isLoading: boolean;
   sections: GenerateModuleContentOutput['sections'] | null;
   error: string | null;
 };
 
-// Path ID to ModuleIndex to ModuleContentState
 type AllModuleContentsState = {
   [pathId: string]: {
     [moduleIndex: number]: ModuleContentState;
@@ -53,7 +51,6 @@ export default function SavedPathsPage() {
         Object.entries(path.modulesDetails).forEach(([moduleIndexStr, detail]) => {
           const moduleIndex = parseInt(moduleIndexStr, 10);
           if (!isNaN(moduleIndex)) {
-            // Check if 'sections' exists (new format)
             if (detail.sections && Array.isArray(detail.sections)) {
               initialContents[path.id][moduleIndex] = {
                 isLoading: false,
@@ -61,11 +58,9 @@ export default function SavedPathsPage() {
                 error: null,
               };
             } else {
-              // Handle old format (content as string, single video query) - this might need regeneration by user
-              // For now, we'll set it as empty, prompting regeneration for full features.
               initialContents[path.id][moduleIndex] = {
                 isLoading: false,
-                sections: null, // Mark as null to show "Generate" button for old data
+                sections: null, 
                 error: null,
               };
             }
@@ -146,7 +141,7 @@ export default function SavedPathsPage() {
         moduleDescription,
         learningGoal,
       };
-      const result = await generateModuleContent(input); // result.sections is the array
+      const result = await generateModuleContent(input); 
       
       const newDetail: SavedModuleDetailedContent = { sections: result.sections };
 
@@ -250,7 +245,7 @@ export default function SavedPathsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8 md:px-6 md:py-12 max-w-4xl">
         <div className="text-center mb-10 md:mb-16">
@@ -271,7 +266,7 @@ export default function SavedPathsPage() {
         )}
 
         {!isLoading && !error && user && savedPaths.length === 0 && (
-          <Card className="shadow-lg">
+          <Card className="shadow-lg bg-background">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <ListChecks className="mr-2 h-6 w-6 text-primary" />
@@ -292,15 +287,15 @@ export default function SavedPathsPage() {
         {!error && user && savedPaths.length > 0 && (
           <div className="space-y-12">
             {savedPaths.map((path) => (
-              <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-2xl">
+              <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary bg-background">
+                <CardHeader className="pb-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    <div className="mb-3 sm:mb-0">
+                      <CardTitle className="text-2xl mb-0.5">
                         {path.learningGoal || "Learning Path"} 
                       </CardTitle>
                       {path.createdAt && (
-                        <CardDescription>
+                        <CardDescription className="text-sm">
                           Saved {formatDistanceToNow(path.createdAt.toDate(), { addSuffix: true })}
                         </CardDescription>
                       )}
@@ -346,6 +341,8 @@ function Header() {
           </div>
           <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
         </Link>
+         {/* It might be good to have AuthButtons here too for consistency */}
+         {/* <AuthButtons /> */}
       </div>
     </header>
   );
@@ -353,10 +350,11 @@ function Header() {
 
 function Footer() {
   return (
-    <footer className="text-center py-6 border-t">
+    <footer className="text-center py-6 border-t bg-background">
       <p className="text-sm text-muted-foreground">
         &copy; {new Date().getFullYear()} PathAInder. All rights reserved.
       </p>
     </footer>
   );
 }
+

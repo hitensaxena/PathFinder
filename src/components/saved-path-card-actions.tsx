@@ -55,13 +55,10 @@ export function SavedPathCardActions({
     setIsDeleting(true);
     try {
       await onDelete(pathId);
-      toast({
-        title: "Path Deleted",
-        description: "The learning path has been successfully deleted.",
-      });
-      setIsDeleteDialogOpen(false); // Close dialog on success
+      // Toast is handled by the parent page for consistency
+      setIsDeleteDialogOpen(false); 
     } catch (error) {
-      console.error("Error deleting path:", error);
+      console.error("Error deleting path from actions component:", error);
       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
       toast({
         title: "Error Deleting Path",
@@ -82,13 +79,10 @@ export function SavedPathCardActions({
     setIsRenaming(true);
     try {
       await onRename(pathId, newGoalName.trim());
-      toast({
-        title: "Path Renamed",
-        description: "The learning path has been successfully renamed.",
-      });
-      setIsRenameDialogOpen(false); // Close dialog on success
+      // Toast is handled by the parent page
+      setIsRenameDialogOpen(false); 
     } catch (error) {
-      console.error("Error renaming path:", error);
+      console.error("Error renaming path from actions component:", error);
       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
       toast({
         title: "Error Renaming Path",
@@ -99,6 +93,11 @@ export function SavedPathCardActions({
       setIsRenaming(false);
     }
   };
+
+  // Update input field when currentLearningGoal prop changes (e.g., after a rename)
+  React.useEffect(() => {
+    setNewGoalName(currentLearningGoal);
+  }, [currentLearningGoal]);
 
   return (
     <div className="flex space-x-2">
@@ -128,6 +127,7 @@ export function SavedPathCardActions({
                   onChange={(e) => setNewGoalName(e.target.value)}
                   className="col-span-3"
                   required
+                  disabled={isRenaming}
                 />
               </div>
             </div>
@@ -138,7 +138,7 @@ export function SavedPathCardActions({
                  </Button>
               </DialogClose>
               <Button type="submit" disabled={isRenaming}>
-                {isRenaming ? <Spinner className="mr-2 h-4 w-4" /> : null}
+                {isRenaming ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Save Changes
               </Button>
             </DialogFooter>
@@ -163,8 +163,8 @@ export function SavedPathCardActions({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-              {isDeleting ? <Spinner className="mr-2 h-4 w-4" /> : null}
+            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              {isDeleting ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

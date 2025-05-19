@@ -11,6 +11,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription, // Added for module sub-details
 } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { BookMarked, NotebookText, Lightbulb, TimerIcon, CheckCircle2, Sparkles, AlertCircleIcon, Youtube, ExternalLink as ExternalLinkIcon, ChevronDown, ChevronUp } from "lucide-react";
@@ -47,17 +48,16 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
 
   return (
     <div className="mt-6">
-      <h2 className="text-2xl font-semibold mb-4 text-center text-primary">
+      <h2 className="text-2xl font-semibold mb-6 text-center text-primary">
         Path Modules
       </h2>
-      <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-4">
+      <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-6">
         {path.modules.map((module: LearningModule, index: number) => {
           const currentModuleDetailedContentState = moduleContents?.[index];
           const hasSections = !!currentModuleDetailedContentState?.sections && currentModuleDetailedContentState.sections.length > 0;
           const isLoadingDetails = !!currentModuleDetailedContentState?.isLoading;
           const hasErrorDetails = !!currentModuleDetailedContentState?.error;
 
-          // State for toggling visibility of the detailed content section
           const [isDetailedSectionOpen, setIsDetailedSectionOpen] = useState(false);
 
           const handleToggleOrGenerateDetails = () => {
@@ -67,8 +67,8 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
               setIsDetailedSectionOpen(!isDetailedSectionOpen);
             } else if (onGenerateModuleContent && !hasErrorDetails) {
               onGenerateModuleContent(index, module.title, module.description);
-              setIsDetailedSectionOpen(true); // Open section to show loading/content
-            } else if (hasErrorDetails && onGenerateModuleContent) { // Allow retry on error
+              setIsDetailedSectionOpen(true); 
+            } else if (hasErrorDetails && onGenerateModuleContent) { 
               onGenerateModuleContent(index, module.title, module.description);
               setIsDetailedSectionOpen(true);
             }
@@ -91,49 +91,44 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
           } else if (hasErrorDetails) {
             detailButtonIcon = <AlertCircleIcon className="mr-2 h-5 w-5 text-destructive" />;
             detailButtonText = onGenerateModuleContent ? "Retry Generating Details" : "Error Loading Details";
-            buttonDisabled = !onGenerateModuleContent; // Disable only if no retry mechanism
+            buttonDisabled = !onGenerateModuleContent;
           } else {
-            // Case where there's no content, no error, and no onGenerateModuleContent prop
-             detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />; // Default icon
-             buttonDisabled = true; // Can't do anything
+             detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />;
+             buttonDisabled = true; 
           }
 
 
           return (
-            <AccordionItem value={`module-${index}`} key={index} className="border bg-card rounded-lg shadow-md">
-              <AccordionTrigger className="p-6 hover:no-underline">
+            <AccordionItem value={`module-${index}`} key={index} className="border border-border bg-card rounded-xl shadow-lg overflow-hidden">
+              <AccordionTrigger className="p-6 hover:no-underline data-[state=open]:bg-muted/50 transition-colors">
                 <div className="flex items-center text-left w-full">
-                  <BookMarked className="h-6 w-6 mr-3 text-accent flex-shrink-0" />
-                  <span className="text-xl font-semibold flex-grow">{module.title}</span>
+                  <BookMarked className="h-7 w-7 mr-4 text-primary flex-shrink-0" />
+                  <div className="flex-grow">
+                    <span className="text-xl font-semibold text-foreground">{module.title}</span>
+                    <p className="text-sm text-muted-foreground mt-1">{module.estimatedTime}</p>
+                  </div>
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="p-6 pt-0">
+              <AccordionContent className="p-6 pt-2 bg-card">
                 <div className="space-y-4">
-                  <div className="flex items-start">
-                    <NotebookText className="h-5 w-5 mr-3 mt-1 text-muted-foreground flex-shrink-0" />
-                    <p className="text-muted-foreground">{module.description}</p>
+                  <div className="flex items-start text-muted-foreground">
+                    <NotebookText className="h-5 w-5 mr-3 mt-1 flex-shrink-0" />
+                    <p>{module.description}</p>
                   </div>
-                  <div className="flex items-start">
-                    <Lightbulb className="h-5 w-5 mr-3 mt-1 text-muted-foreground flex-shrink-0" />
+                  <div className="flex items-start text-muted-foreground">
+                    <Lightbulb className="h-5 w-5 mr-3 mt-1 flex-shrink-0" />
                     <div>
-                      <h4 className="font-medium">Suggested Resources:</h4>
-                      <p className="text-muted-foreground">{module.suggestedResources}</p>
+                      <h4 className="font-medium text-foreground">Suggested Resources:</h4>
+                      <p>{module.suggestedResources}</p>
                     </div>
                   </div>
-                  <div className="flex items-center">
-                    <TimerIcon className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
-                    <p className="text-sm font-medium">
-                      Estimated Time: <span className="font-normal text-muted-foreground">{module.estimatedTime}</span>
-                    </p>
-                  </div>
-
-                  {/* Collapsible Detailed Content Section */}
+                  
                   {(onGenerateModuleContent || hasSections || isLoadingDetails || hasErrorDetails) && (
-                    <div className="mt-4 pt-4 border-t">
+                    <div className="mt-6 pt-4 border-t border-border">
                       <Button 
                         variant="ghost" 
                         onClick={handleToggleOrGenerateDetails}
-                        className="w-full justify-start text-lg font-medium mb-3 pl-0 hover:bg-transparent text-left h-auto py-2"
+                        className="w-full justify-start text-lg font-semibold mb-3 pl-0 hover:bg-transparent hover:text-primary text-left h-auto py-2"
                         disabled={buttonDisabled}
                       >
                         <div className="flex items-center">
@@ -143,7 +138,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                       </Button>
                       
                       {isDetailedSectionOpen && (
-                        <div className="pl-2 space-y-3">
+                        <div className="pl-1 space-y-5">
                           {isLoadingDetails && (
                             <div className="flex items-center space-x-2 text-muted-foreground py-4">
                               <Spinner className="h-5 w-5" />
@@ -162,22 +157,22 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                           {hasSections && !isLoadingDetails && !hasErrorDetails && currentModuleDetailedContentState?.sections && (
                             <div className="space-y-4 mt-2">
                               {currentModuleDetailedContentState.sections.map((section, secIdx) => (
-                                <Card key={secIdx} className="shadow-sm bg-background"> {/* Changed background for better contrast */}
-                                  <CardHeader>
+                                <Card key={secIdx} className="shadow-md bg-muted/30 border-border overflow-hidden">
+                                  <CardHeader className="pb-3">
                                     {section.recommendedYoutubeVideoQuery && (
-                                        <div className="mb-3">
-                                          <h5 className="font-medium mb-1 flex items-center text-sm text-muted-foreground">
-                                            <Youtube className="h-4 w-4 mr-2 text-red-600" /> {/* Adjusted color for visibility */}
-                                            Suggested Video for this Section:
+                                        <div className="mb-2">
+                                          <h5 className="font-medium mb-1 flex items-center text-sm text-primary">
+                                            <Youtube className="h-5 w-5 mr-2 text-red-600" /> 
+                                            Watch & Learn:
                                           </h5>
                                           <a
                                             href={`https://www.youtube.com/results?search_query=${encodeURIComponent(section.recommendedYoutubeVideoQuery)}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-primary hover:underline hover:text-accent text-sm transition-colors inline-flex items-center group"
+                                            className="text-primary hover:underline hover:text-accent-foreground text-sm transition-colors inline-flex items-center group"
                                           >
                                             {section.recommendedYoutubeVideoQuery}
-                                            <ExternalLinkIcon className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
+                                            <ExternalLinkIcon className="ml-1.5 h-3.5 w-3.5 opacity-70 group-hover:opacity-100 transition-opacity" />
                                           </a>
                                         </div>
                                       )}
@@ -185,7 +180,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                                   </CardHeader>
                                   <CardContent>
                                     <div 
-                                      className="prose prose-sm max-w-none text-foreground dark:prose-invert" 
+                                      className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-ul:text-muted-foreground prose-li:marker:text-primary"
                                       dangerouslySetInnerHTML={{ __html: section.sectionContent }}
                                     />
                                   </CardContent>
@@ -203,42 +198,22 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
           );
         })}
       </Accordion>
-       <Card className="mt-8 shadow-lg border-t-4 border-accent">
+       <Card className="mt-10 shadow-lg border-t-4 border-primary bg-primary/5">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <CheckCircle2 className="h-6 w-6 mr-2 text-green-500" />
-            Next Steps
+          <CardTitle className="flex items-center text-xl">
+            <CheckCircle2 className="h-7 w-7 mr-3 text-green-600" />
+            What's Next?
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            This is your starting point! Use the suggested resources and time estimates to begin your learning journey.
-            {onGenerateModuleContent && " Generate detailed content, broken into sections with video suggestions, for each module to get a deeper understanding."}
-            Remember to adapt the plan to your pace and dive deeper into topics that interest you most. Happy learning!
+            This AI-generated path is your launchpad! Use the suggested resources and time estimates to start. 
+            {onGenerateModuleContent && " Generate detailed content and video suggestions for each module to dive deeper."}
+            <br/><br/>
+            Remember, learning is a personal journey. Adapt this plan to your own pace, explore topics that capture your interest, and don't be afraid to go off-script. Happy learning!
           </p>
         </CardContent>
       </Card>
     </div>
   );
 }
-
-// Re-add ExternalLink if it was removed or ensure it's imported from lucide-react
-// For now, defining it locally to ensure it exists.
-// const ExternalLink = (props: React.SVGProps<SVGSVGElement>) => ( // Already imported as ExternalLinkIcon
-//     <svg
-//       xmlns="http://www.w3.org/2000/svg"
-//       viewBox="0 0 24 24"
-//       fill="none"
-//       stroke="currentColor"
-//       strokeWidth="2"
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       {...props}
-//     >
-//       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-//       <polyline points="15 3 21 3 21 9" />
-//       <line x1="10" y1="14" x2="21" y2="3" />
-//     </svg>
-//   );
-
-    
