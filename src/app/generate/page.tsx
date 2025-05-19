@@ -108,167 +108,169 @@ export default function GeneratePathPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/50">
-      <div className="container mx-auto px-4 py-12 md:py-20 max-w-4xl">
-        <Button
-          variant="ghost"
-          className="mb-8 hover-lift"
-          onClick={() => router.back()}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
+    typeof window === 'undefined' ? null : (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/50">
+        <div className="container mx-auto px-4 py-12 md:py-20 max-w-4xl">
+          <Button
+            variant="ghost"
+            className="mb-8 hover-lift"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
 
-        <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-            Customize Your Learning Path
-          </h1>
-          <p className="text-xl text-muted-foreground">
-            Help us create the perfect learning journey for you
-          </p>
-        </div>
+          <div className="text-center mb-12 animate-fade-in">
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+              Customize Your Learning Path
+            </h1>
+            <p className="text-xl text-muted-foreground">
+              Help us create the perfect learning journey for you
+            </p>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Learning Goal Card */}
-            <Card className="hover-lift hover-glow animate-slide-up">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Target className="h-5 w-5 text-primary" />
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Learning Goal Card */}
+              <Card className="hover-lift hover-glow animate-slide-up">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Target className="h-5 w-5 text-primary" />
+                    </div>
+                    <Label htmlFor="learningGoal" className="text-lg font-medium">
+                      Learning Goal
+                    </Label>
                   </div>
-                  <Label htmlFor="learningGoal" className="text-lg font-medium">
-                    Learning Goal
-                  </Label>
-                </div>
-                <Input
-                  id="learningGoal"
-                  name="learningGoal"
-                  placeholder="What do you want to learn?"
-                  className="text-lg"
-                  required
-                  value={learningGoal}
-                  onChange={(e) => setLearningGoal(e.target.value)}
+                  <Input
+                    id="learningGoal"
+                    name="learningGoal"
+                    placeholder="What do you want to learn?"
+                    className="text-lg"
+                    required
+                    value={learningGoal}
+                    onChange={(e) => setLearningGoal(e.target.value)}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Current Knowledge Level Card */}
+              <Card className="hover-lift hover-glow animate-slide-up" style={{ animationDelay: "100ms" }}>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Brain className="h-5 w-5 text-primary" />
+                    </div>
+                    <Label htmlFor="currentKnowledgeLevel" className="text-lg font-medium">
+                      Current Knowledge Level
+                    </Label>
+                  </div>
+                  <Select name="currentKnowledgeLevel" required value={currentKnowledgeLevel} onValueChange={v => setCurrentKnowledgeLevel(v as "Beginner" | "Intermediate" | "Advanced")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your current level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Beginner">Beginner</SelectItem>
+                      <SelectItem value="Intermediate">Intermediate</SelectItem>
+                      <SelectItem value="Advanced">Advanced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+
+              {/* Weekly Time Commitment Card */}
+              <Card className="hover-lift hover-glow animate-slide-up" style={{ animationDelay: "200ms" }}>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Clock className="h-5 w-5 text-primary" />
+                    </div>
+                    <Label htmlFor="weeklyTimeCommitment" className="text-lg font-medium">
+                      Weekly Time Commitment
+                    </Label>
+                  </div>
+                  <Select name="weeklyTimeCommitment" required value={weeklyTimeCommitment} onValueChange={setWeeklyTimeCommitment}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your time commitment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 hour/week</SelectItem>
+                      <SelectItem value="3">3 hours/week</SelectItem>
+                      <SelectItem value="5">5 hours/week</SelectItem>
+                      <SelectItem value="10">10 hours/week</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+
+              {/* Preferred Learning Style Card */}
+              <Card className="hover-lift hover-glow animate-slide-up" style={{ animationDelay: "300ms" }}>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Zap className="h-5 w-5 text-primary" />
+                    </div>
+                    <Label htmlFor="preferredLearningStyle" className="text-lg font-medium">
+                      Preferred Learning Style
+                    </Label>
+                  </div>
+                  <Select name="preferredLearningStyle" required value={preferredLearningStyle} onValueChange={v => setPreferredLearningStyle(v as "Videos" | "Articles" | "Interactive Exercises")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your learning style" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Videos">Videos</SelectItem>
+                      <SelectItem value="Articles">Articles</SelectItem>
+                      <SelectItem value="Interactive Exercises">Interactive Exercises</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Additional Context Card */}
+            <Card className="hover-lift hover-glow animate-slide-up" style={{ animationDelay: "400ms" }}>
+              <CardContent className="p-6">
+                <Label htmlFor="additionalContext" className="text-lg font-medium mb-4 block">
+                  Additional Context (Optional)
+                </Label>
+                <Textarea
+                  id="additionalContext"
+                  name="additionalContext"
+                  placeholder="Tell us more about your goals, preferences, or any specific requirements..."
+                  className="min-h-[120px] text-lg"
                 />
               </CardContent>
             </Card>
 
-            {/* Current Knowledge Level Card */}
-            <Card className="hover-lift hover-glow animate-slide-up" style={{ animationDelay: "100ms" }}>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Brain className="h-5 w-5 text-primary" />
-                  </div>
-                  <Label htmlFor="currentKnowledgeLevel" className="text-lg font-medium">
-                    Current Knowledge Level
-                  </Label>
-                </div>
-                <Select name="currentKnowledgeLevel" required value={currentKnowledgeLevel} onValueChange={v => setCurrentKnowledgeLevel(v as "Beginner" | "Intermediate" | "Advanced")}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your current level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Intermediate">Intermediate</SelectItem>
-                    <SelectItem value="Advanced">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
+            {error && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-5 w-5" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-            {/* Weekly Time Commitment Card */}
-            <Card className="hover-lift hover-glow animate-slide-up" style={{ animationDelay: "200ms" }}>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Clock className="h-5 w-5 text-primary" />
-                  </div>
-                  <Label htmlFor="weeklyTimeCommitment" className="text-lg font-medium">
-                    Weekly Time Commitment
-                  </Label>
-                </div>
-                <Select name="weeklyTimeCommitment" required value={weeklyTimeCommitment} onValueChange={setWeeklyTimeCommitment}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your time commitment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 hour/week</SelectItem>
-                    <SelectItem value="3">3 hours/week</SelectItem>
-                    <SelectItem value="5">5 hours/week</SelectItem>
-                    <SelectItem value="10">10 hours/week</SelectItem>
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-
-            {/* Preferred Learning Style Card */}
-            <Card className="hover-lift hover-glow animate-slide-up" style={{ animationDelay: "300ms" }}>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Zap className="h-5 w-5 text-primary" />
-                  </div>
-                  <Label htmlFor="preferredLearningStyle" className="text-lg font-medium">
-                    Preferred Learning Style
-                  </Label>
-                </div>
-                <Select name="preferredLearningStyle" required value={preferredLearningStyle} onValueChange={v => setPreferredLearningStyle(v as "Videos" | "Articles" | "Interactive Exercises")}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your learning style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Videos">Videos</SelectItem>
-                    <SelectItem value="Articles">Articles</SelectItem>
-                    <SelectItem value="Interactive Exercises">Interactive Exercises</SelectItem>
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Additional Context Card */}
-          <Card className="hover-lift hover-glow animate-slide-up" style={{ animationDelay: "400ms" }}>
-            <CardContent className="p-6">
-              <Label htmlFor="additionalContext" className="text-lg font-medium mb-4 block">
-                Additional Context (Optional)
-              </Label>
-              <Textarea
-                id="additionalContext"
-                name="additionalContext"
-                placeholder="Tell us more about your goals, preferences, or any specific requirements..."
-                className="min-h-[120px] text-lg"
-              />
-            </CardContent>
-          </Card>
-
-          {error && (
-            <Alert variant="destructive" className="animate-fade-in">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex justify-center">
-            <Button
-              type="submit"
-              size="lg"
-              className="px-12 py-6 text-lg hover-lift hover-glow animate-slide-up"
-              style={{ animationDelay: "500ms" }}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Spinner className="mr-2 h-5 w-5" />
-                  Generating Path...
-                </>
-              ) : (
-                "Generate Learning Path"
-              )}
-            </Button>
-          </div>
-        </form>
+            <div className="flex justify-center">
+              <Button
+                type="submit"
+                size="lg"
+                className="px-12 py-6 text-lg hover-lift hover-glow animate-slide-up"
+                style={{ animationDelay: "500ms" }}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Spinner className="mr-2 h-5 w-5" />
+                    Generating Path...
+                  </>
+                ) : (
+                  "Generate Learning Path"
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    )
   );
 } 
