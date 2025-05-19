@@ -81,15 +81,17 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                   </div>
 
                   {/* Detailed Content Section */}
-                  {(onGenerateModuleContent || (currentModuleContent && (currentModuleContent.content || currentModuleContent.error))) && (
+                  {(onGenerateModuleContent || (currentModuleContent && (currentModuleContent.content || currentModuleContent.error || currentModuleContent.youtubeSearchQueries))) && (
                     <div className="mt-4 pt-4 border-t">
                       <h4 className="font-medium mb-2 text-lg">Detailed Content & Resources:</h4>
+                      
                       {currentModuleContent?.isLoading && (
                         <div className="flex items-center space-x-2 text-muted-foreground">
                           <Spinner className="h-5 w-5" />
                           <span>Generating content...</span>
                         </div>
                       )}
+
                       {currentModuleContent?.error && !currentModuleContent.isLoading && (
                         <Alert variant="destructive" className="mt-2">
                           <AlertCircleIcon className="h-4 w-4" />
@@ -98,16 +100,10 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                         </Alert>
                       )}
                       
-                      {currentModuleContent?.content && !currentModuleContent.isLoading && (
-                        <div 
-                          className="prose prose-sm max-w-none text-foreground dark:prose-invert mb-4" 
-                          dangerouslySetInnerHTML={{ __html: currentModuleContent.content.replace(/\n/g, '<br />') }} // Basic markdown formatting
-                        />
-                      )}
-
+                      {/* YouTube Video Suggestions - Displayed First */}
                       {currentModuleContent?.youtubeSearchQueries && currentModuleContent.youtubeSearchQueries.length > 0 && !currentModuleContent.isLoading && (
-                        <div className="mt-3">
-                          <h5 className="font-medium mb-1 flex items-center">
+                        <div className="mb-4"> {/* Added margin-bottom */}
+                          <h5 className="font-medium mb-2 flex items-center text-md"> {/* Adjusted margin and text size */}
                             <Youtube className="h-5 w-5 mr-2 text-red-600" />
                             Suggested Video Searches:
                           </h5>
@@ -129,13 +125,21 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                         </div>
                       )}
 
-                      {/* Show button only if onGenerateModuleContent is provided AND content hasn't been loaded/attempted */}
-                      {onGenerateModuleContent && !currentModuleContent?.content && !currentModuleContent?.isLoading && !currentModuleContent?.error && (
+                      {/* Detailed Textual Content - Displayed Second */}
+                      {currentModuleContent?.content && !currentModuleContent.isLoading && (
+                        <div 
+                          className="prose prose-sm max-w-none text-foreground dark:prose-invert" 
+                          dangerouslySetInnerHTML={{ __html: currentModuleContent.content }} // Render raw HTML/Markdown
+                        />
+                      )}
+
+                      {/* Button to generate content */}
+                      {onGenerateModuleContent && !currentModuleContent?.isLoading && (!currentModuleContent?.content && !currentModuleContent?.youtubeSearchQueries) && !currentModuleContent?.error && (
                         <Button 
                           onClick={() => onGenerateModuleContent(index, module.title, module.description)}
                           variant="outline"
                           size="sm"
-                          className="mt-2"
+                          className="mt-3" // Adjusted margin
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
                           Generate Detailed Content & Video Suggestions
@@ -187,3 +191,4 @@ function ExternalLink(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
