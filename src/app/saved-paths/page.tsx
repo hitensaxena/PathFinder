@@ -8,13 +8,13 @@ import {
   getUserLearningPaths, 
   updateLearningPathModuleDetail, 
   deleteLearningPath,
-  updateLearningPathGoal, // Added
+  updateLearningPathGoal,
   type SavedLearningPath, 
   type SavedModuleDetailedContent 
 } from "@/services/learningPathService";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { LearningPathDisplay } from "@/components/learning-path-display";
-import { SavedPathCardActions } from "@/components/saved-path-card-actions"; // Added
+import { SavedPathCardActions } from "@/components/saved-path-card-actions";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,13 +25,13 @@ import { useToast } from "@/hooks/use-toast";
 
 type ModuleContentState = {
   isLoading: boolean;
-  sections: GenerateModuleContentOutput['sections'] | null;
+  sections: GenerateModuleContentOutput['sections'] | null; // Array of sections
   error: string | null;
 };
 
 type AllModuleContentsState = {
   [pathId: string]: {
-    [moduleIndex: number]: ModuleContentState;
+    [moduleIndex: string]: ModuleContentState; // Use string for moduleIndex key
   };
 };
 
@@ -49,22 +49,21 @@ export default function SavedPathsPage() {
       initialContents[path.id] = {};
       if (path.modulesDetails) {
         Object.entries(path.modulesDetails).forEach(([moduleIndexStr, detail]) => {
-          const moduleIndex = parseInt(moduleIndexStr, 10);
-          if (!isNaN(moduleIndex)) {
+           const moduleIndexKey = moduleIndexStr; // Already a string
+            // Check if detail is in the new section format, or adapt old format
             if (detail.sections && Array.isArray(detail.sections)) {
-              initialContents[path.id][moduleIndex] = {
-                isLoading: false,
-                sections: detail.sections,
-                error: null,
-              };
-            } else {
-              initialContents[path.id][moduleIndex] = {
-                isLoading: false,
-                sections: null, 
-                error: null,
-              };
+                 initialContents[path.id][moduleIndexKey] = {
+                    isLoading: false,
+                    sections: detail.sections,
+                    error: null,
+                };
+            } else { // Potentially old format or empty; initialize as empty
+                 initialContents[path.id][moduleIndexKey] = {
+                    isLoading: false,
+                    sections: null, 
+                    error: null,
+                };
             }
-          }
         });
       }
     });
@@ -105,18 +104,19 @@ export default function SavedPathsPage() {
 
   const handleGenerateModuleContentForSavedPath = async (
     pathId: string,
-    learningGoal: string | undefined,
+    learningGoal: string | undefined, // learningGoal comes from path object
     moduleIndex: number,
     moduleTitle: string,
     moduleDescription: string
   ) => {
     if (!learningGoal || typeof learningGoal !== 'string' || learningGoal === "Untitled Learning Path") {
       const errorMessage = "Learning goal context is missing or invalid for this saved path. Detailed content cannot be generated.";
+      const moduleKey = String(moduleIndex);
       setModuleContents(prev => ({
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, sections: null, error: errorMessage }
+          [moduleKey]: { isLoading: false, sections: null, error: errorMessage }
         }
       }));
       toast({
@@ -126,12 +126,12 @@ export default function SavedPathsPage() {
       });
       return;
     }
-
+    const moduleKey = String(moduleIndex);
     setModuleContents(prev => ({
       ...prev,
       [pathId]: {
         ...(prev[pathId] || {}),
-        [moduleIndex]: { isLoading: true, sections: null, error: null }
+        [moduleKey]: { isLoading: true, sections: null, error: null }
       }
     }));
 
@@ -139,7 +139,7 @@ export default function SavedPathsPage() {
       const input: GenerateModuleContentInput = {
         moduleTitle,
         moduleDescription,
-        learningGoal,
+        learningGoal, 
       };
       const result = await generateModuleContent(input); 
       
@@ -151,7 +151,7 @@ export default function SavedPathsPage() {
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, sections: result.sections, error: null }
+          [moduleKey]: { isLoading: false, sections: result.sections, error: null }
         }
       }));
       toast({
@@ -165,7 +165,7 @@ export default function SavedPathsPage() {
         ...prev,
         [pathId]: {
           ...(prev[pathId] || {}),
-          [moduleIndex]: { isLoading: false, sections: null, error: errorMessage }
+          [moduleKey]: { isLoading: false, sections: null, error: errorMessage }
         }
       }));
       toast({
@@ -311,6 +311,7 @@ export default function SavedPathsPage() {
                 <CardContent>
                   <LearningPathDisplay
                     path={path}
+                    learningGoal={path.learningGoal || "Untitled Learning Path"} // Pass learningGoal
                     moduleContents={moduleContents[path.id] || {}}
                     onGenerateModuleContent={(moduleIndex, moduleTitle, moduleDescription) => 
                       handleGenerateModuleContentForSavedPath(path.id, path.learningGoal, moduleIndex, moduleTitle, moduleDescription)
@@ -341,8 +342,6 @@ function Header() {
           </div>
           <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
         </Link>
-         {/* It might be good to have AuthButtons here too for consistency */}
-         {/* <AuthButtons /> */}
       </div>
     </header>
   );
@@ -357,4 +356,3 @@ function Footer() {
     </footer>
   );
 }
-

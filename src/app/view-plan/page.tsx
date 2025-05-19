@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from "next/link";
 import { useLearningPath } from "@/context/learning-path-context";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
-import { saveLearningPath, type SavedModuleDetailedContent } from "@/services/learningPathService";
+import { saveLearningPath, type SavedModuleDetailedContent, type SavedLearningPath } from "@/services/learningPathService"; // Added SavedLearningPath type
 import { useAuth } from "@/context/auth-context";
 import { LearningPathDisplay } from "@/components/learning-path-display";
 import { Spinner } from "@/components/spinner";
@@ -31,7 +31,7 @@ import { auth } from '@/lib/firebase';
 
 type ModuleContentState = {
   isLoading: boolean;
-  sections: GenerateModuleContentOutput['sections'] | null;
+  sections: GenerateModuleContentOutput['sections'] | null; // Array of sections
   error: string | null;
 };
 
@@ -41,15 +41,13 @@ export default function ViewPlanPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [moduleContents, setModuleContents] = useState<{ [moduleIndex: number]: ModuleContentState }>({});
+  const [moduleContents, setModuleContents] = useState<{ [moduleIndex: string]: ModuleContentState }>({});
   const [isSavingPlan, setIsSavingPlan] = useState(false);
-  const [pageError, setPageError] = useState<string | null>(null); // For errors on this page specifically
+  const [pageError, setPageError] = useState<string | null>(null);
   const [showSaveSignInDialog, setShowSaveSignInDialog] = useState(false);
 
   useEffect(() => {
-    if (!pathData || !formInput) {
-      // If no path data in context (e.g., direct navigation or refresh), redirect to home
-      // Small delay to allow context to potentially populate on initial load
+    if (!authLoading && (!pathData || !formInput)) {
       const timer = setTimeout(() => {
         if (!pathData || !formInput) {
             toast({ title: "No Plan Active", description: "Please generate a learning plan first.", variant: "destructive" });
@@ -58,17 +56,17 @@ export default function ViewPlanPage() {
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [pathData, formInput, router, toast]);
+  }, [pathData, formInput, router, toast, authLoading]);
 
   const handleGenerateModuleContent = async (moduleIndex: number, moduleTitle: string, moduleDescription: string) => {
-    if (!formInput) { // formInput should be available if pathData is
+    if (!formInput) {
       toast({ title: "Error", description: "Learning goal context is missing.", variant: "destructive" });
       return;
     }
-
+    const moduleKey = String(moduleIndex);
     setModuleContents(prev => ({
       ...prev,
-      [moduleIndex]: { isLoading: true, sections: null, error: null }
+      [moduleKey]: { isLoading: true, sections: null, error: null }
     }));
 
     try {
@@ -80,7 +78,7 @@ export default function ViewPlanPage() {
       const result = await generateModuleContent(input);
       setModuleContents(prev => ({
         ...prev,
-        [moduleIndex]: { isLoading: false, sections: result.sections, error: null }
+        [moduleKey]: { isLoading: false, sections: result.sections, error: null }
       }));
       toast({
         title: `Content for "${moduleTitle}"`,
@@ -91,7 +89,7 @@ export default function ViewPlanPage() {
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred.";
       setModuleContents(prev => ({
         ...prev,
-        [moduleIndex]: { isLoading: false, sections: null, error: errorMessage }
+        [moduleKey]: { isLoading: false, sections: null, error: errorMessage }
       }));
       toast({
         title: `Error for "${moduleTitle}"`,
@@ -110,11 +108,6 @@ export default function ViewPlanPage() {
         description: "Successfully signed in. You can now save your plan.",
       });
       setShowSaveSignInDialog(false);
-      // Potentially re-trigger save after successful sign-in
-      // Check if user is now available by checking useAuth().user directly after sign in
-      // Forcing a re-check of user state after popup often requires a slight delay or state update
-      // For simplicity, we assume user state will update, then they can click save again.
-      // A more robust solution might involve a callback that re-triggers save.
     } catch (error) {
       console.error('Error signing in with Google:', error);
       toast({
@@ -155,8 +148,8 @@ export default function ViewPlanPage() {
         title: "Plan Saved!",
         description: "Your learning path has been saved. You can find it in 'My Paths'.",
       });
-      // Optionally redirect to saved paths or clear context
-      // For now, keeps user on page to review or generate more content
+      // Optionally redirect or clear context. For now, user stays.
+      // To prevent re-saving, could disable button or mark plan as saved.
     } catch (e) {
       console.error("Error saving learning path:", e);
       const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while saving your plan.";
@@ -176,8 +169,7 @@ export default function ViewPlanPage() {
     router.push('/');
   };
 
-  if (!pathData || !formInput) {
-    // This check is primarily for the initial render before useEffect might redirect
+  if (authLoading || !pathData || !formInput) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
@@ -208,8 +200,8 @@ export default function ViewPlanPage() {
             </p>
           </div>
           <div className="flex items-center gap-3 mt-4 sm:mt-0">
-             {!authLoading && ( // Only show save if auth state is determined
-                <Button onClick={handleSavePlan} disabled={isSavingPlan || authLoading} size="lg" className="shadow-md">
+             {!authLoading && user && ( // Only show save if auth state is determined AND user is logged in
+                <Button onClick={handleSavePlan} disabled={isSavingPlan} size="lg" className="shadow-md">
                   {isSavingPlan ? (
                     <>
                       <Spinner className="mr-2 h-5 w-5" /> Saving...
@@ -219,6 +211,11 @@ export default function ViewPlanPage() {
                       <Save className="mr-2 h-5 w-5" /> Save Plan
                     </>
                   )}
+                </Button>
+              )}
+               {!authLoading && !user && ( // Show Sign In to Save if not logged in
+                <Button onClick={() => setShowSaveSignInDialog(true)} size="lg" className="shadow-md">
+                    <LogIn className="mr-2 h-5 w-5" /> Sign In to Save
                 </Button>
               )}
             <Button
@@ -243,12 +240,11 @@ export default function ViewPlanPage() {
 
         <LearningPathDisplay
           path={pathData}
+          learningGoal={formInput.learningGoal} // Pass learningGoal
           moduleContents={moduleContents}
           onGenerateModuleContent={handleGenerateModuleContent}
         />
         
-        {/* Moved action buttons to the top section */}
-
       </main>
 
       <AlertDialog open={showSaveSignInDialog} onOpenChange={setShowSaveSignInDialog}>
@@ -274,7 +270,6 @@ export default function ViewPlanPage() {
 }
 
 
-// Simple Header and Footer components for this page
 function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -289,7 +284,6 @@ function Header() {
           </div>
           <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
         </Link>
-        {/* AuthButtons could be added here if desired, or keep it simpler */}
       </div>
     </header>
   );
@@ -306,4 +300,3 @@ function Footer() {
     </footer>
   );
 }
-

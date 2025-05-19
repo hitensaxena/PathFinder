@@ -3,7 +3,7 @@
 
 import type { GenerateLearningPathOutput as LearningPathData } from "@/ai/flows/generate-learning-path";
 import type { GenerateModuleContentOutput, ModuleSectionSchema } from "@/ai/flows/generate-module-content";
-import { generateQuiz, type GenerateQuizInput, type GenerateQuizOutput, type QuizQuestion } from "@/ai/flows/generate-quiz-flow"; // Added
+import { generateQuiz, type GenerateQuizInput, type GenerateQuizOutput, type QuizQuestion } from "@/ai/flows/generate-quiz-flow";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,9 +15,10 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BookMarked, NotebookText, Lightbulb, CheckCircle2, Sparkles, AlertCircleIcon, Youtube, ExternalLink as ExternalLinkIcon, ChevronDown, ChevronUp, HelpCircle, ListChecks } from "lucide-react"; // Added HelpCircle
+import { BookMarked, NotebookText, Lightbulb, CheckCircle2, Sparkles, AlertCircleIcon, Youtube, ExternalLink as ExternalLinkIcon, ChevronDown, ChevronUp, HelpCircle, ListChecks } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast"; // Added
+import { useToast } from "@/hooks/use-toast";
+import Link from 'next/link'; // Added for navigation
 
 type LearningModule = LearningPathData['modules'][number];
 
@@ -29,25 +30,25 @@ type ModuleDetailedContentState = {
   error: string | null;
 };
 
-// State for a module's quiz
-type ModuleQuizState = {
-  isLoading: boolean;
-  questions: QuizQuestion[] | null;
-  error: string | null;
-  isQuizVisible: boolean; // To toggle quiz display
-};
+// State for a module's quiz is no longer managed here, will be on dedicated quiz page
+// type ModuleQuizState = {
+//   isLoading: boolean;
+//   questions: QuizQuestion[] | null;
+//   error: string | null;
+//   isQuizVisible: boolean; 
+// };
 
 type LearningPathDisplayProps = {
   path: LearningPathData;
+  learningGoal: string; // Added prop
   moduleContents?: { [moduleIndex: number]: ModuleDetailedContentState };
   onGenerateModuleContent?: (moduleIndex: number, moduleTitle: string, moduleDescription: string) => void;
-  // Add props for quiz state if managed by parent, or manage internally
 };
 
-export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModuleContent }: LearningPathDisplayProps) {
-  const { toast } = useToast(); // Added
-  const [detailedSectionOpen, setDetailedSectionOpen] = useState<{ [key: number]: boolean }>({});
-  const [moduleQuizzes, setModuleQuizzes] = useState<{ [moduleIndex: number]: ModuleQuizState }>({});
+export function LearningPathDisplay({ path, learningGoal, moduleContents = {}, onGenerateModuleContent }: LearningPathDisplayProps) {
+  const { toast } = useToast();
+  const [detailedSectionOpen, setDetailedSectionOpen] = useState<{ [key: string]: boolean }>({}); // Use string keys for moduleIndex
+  // const [moduleQuizzes, setModuleQuizzes] = useState<{ [moduleIndex: number]: ModuleQuizState }>({}); // Quiz state removed
 
   if (!path || !path.modules || path.modules.length === 0) {
     return (
@@ -67,43 +68,13 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
     if (isLoadingDetails) return;
 
     if (hasSections || hasErrorDetails) {
-      setDetailedSectionOpen(prev => ({ ...prev, [index]: !prev[index] }));
+      setDetailedSectionOpen(prev => ({ ...prev, [String(index)]: !prev[String(index)] }));
     } else if (onGenerateModuleContent) {
       onGenerateModuleContent(index, module.title, module.description);
-      setDetailedSectionOpen(prev => ({ ...prev, [index]: true }));
+      setDetailedSectionOpen(prev => ({ ...prev, [String(index)]: true })); // Auto-open when generating
     }
   };
-
-  const handleTakeQuiz = async (moduleIndex: number, moduleTitle: string, moduleDescription: string) => {
-    setModuleQuizzes(prev => ({
-      ...prev,
-      [moduleIndex]: { isLoading: true, questions: null, error: null, isQuizVisible: false }
-    }));
-
-    try {
-      const quizInput: GenerateQuizInput = { moduleTitle, moduleDescription };
-      const result = await generateQuiz(quizInput);
-      setModuleQuizzes(prev => ({
-        ...prev,
-        [moduleIndex]: { isLoading: false, questions: result.questions, error: null, isQuizVisible: true }
-      }));
-      toast({ title: `Quiz for "${moduleTitle}"`, description: "Quiz questions loaded. Ready to test your knowledge!" });
-    } catch (e) {
-      console.error(`Error generating quiz for module ${moduleIndex}:`, e);
-      const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while generating the quiz.";
-      setModuleQuizzes(prev => ({
-        ...prev,
-        [moduleIndex]: { isLoading: false, questions: null, error: errorMessage, isQuizVisible: false }
-      }));
-      toast({
-        title: `Error Generating Quiz for "${moduleTitle}"`,
-        description: errorMessage,
-        variant: "destructive",
-      });
-    }
-  };
-
-
+  
   return (
     <div className="mt-6">
       <h2 className="text-2xl font-semibold mb-6 text-center text-primary">
@@ -111,13 +82,12 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
       </h2>
       <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-6">
         {path.modules.map((module: LearningModule, index: number) => {
-          const currentDetailedContentState = moduleContents?.[index];
+          const moduleKey = String(index);
+          const currentDetailedContentState = moduleContents?.[moduleKey];
           const hasSections = !!currentDetailedContentState?.sections && currentDetailedContentState.sections.length > 0;
           const isLoadingDetails = !!currentDetailedContentState?.isLoading;
           const hasErrorDetails = !!currentDetailedContentState?.error;
-          const isDetailedViewOpen = !!detailedSectionOpen[index];
-
-          const currentQuizState = moduleQuizzes[index];
+          const isDetailedViewOpen = !!detailedSectionOpen[moduleKey];
 
           let detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />;
           let detailButtonText = "Detailed Content & Resources";
@@ -130,21 +100,21 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
           } else if (hasSections) {
             detailButtonIcon = isDetailedViewOpen ? <ChevronUp className="mr-2 h-5 w-5" /> : <ChevronDown className="mr-2 h-5 w-5" />;
             detailButtonText = isDetailedViewOpen ? "Hide Details" : "Show Details";
-          } else if (onGenerateModuleContent && !hasErrorDetails) {
+          } else if (onGenerateModuleContent && !hasErrorDetails) { // Can generate
             detailButtonIcon = <Sparkles className="mr-2 h-5 w-5" />;
             detailButtonText = "Generate & Show Details";
-          } else if (hasErrorDetails && onGenerateModuleContent) {
-            detailButtonIcon = <AlertCircleIcon className="mr-2 h-5 w-5 text-destructive" />;
-            detailButtonText = "Retry Generating Details";
-          } else if (!onGenerateModuleContent && !hasSections && !hasErrorDetails) { // No handler and no content
-            detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />;
-            detailButtonText = "Detailed Content Unavailable";
-            detailButtonDisabled = true;
+          } else if (hasErrorDetails && onGenerateModuleContent) { // Error occurred, can retry
+             detailButtonIcon = <AlertCircleIcon className="mr-2 h-5 w-5 text-destructive" />;
+             detailButtonText = "Retry Generating Details";
+          } else if (!onGenerateModuleContent && !hasSections && !hasErrorDetails) { // No handler and no pre-loaded content
+             detailButtonIcon = <ChevronDown className="mr-2 h-5 w-5" />;
+             detailButtonText = "Detailed Content Unavailable";
+             detailButtonDisabled = true;
           }
 
 
           return (
-            <AccordionItem value={`module-${index}`} key={index} className="border border-border bg-card rounded-xl shadow-lg overflow-hidden">
+            <AccordionItem value={`module-${index}`} key={index} className="border border-border bg-card rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
               <AccordionTrigger className="p-6 hover:no-underline data-[state=open]:bg-muted/50 transition-colors">
                 <div className="flex items-center text-left w-full">
                   <BookMarked className="h-7 w-7 mr-4 text-primary flex-shrink-0" />
@@ -234,56 +204,20 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                     </div>
                   )}
 
-                  {/* Quiz Section */}
+                  {/* Quiz Section Button */}
                   <div className="mt-4 pt-4 border-t border-border">
                      <Button 
                         variant="outline" 
-                        onClick={() => handleTakeQuiz(index, module.title, module.description)}
+                        asChild // Use asChild to make the Button act like a Link
                         className="w-full justify-start text-md font-semibold mb-2 pl-0 hover:bg-accent/20 text-left h-auto py-2"
-                        disabled={currentQuizState?.isLoading}
                       >
-                        <div className="flex items-center">
-                          {currentQuizState?.isLoading ? <Spinner className="mr-2 h-5 w-5" /> : <HelpCircle className="mr-2 h-5 w-5 text-primary" />}
-                          <span>{currentQuizState?.isLoading ? 'Loading Quiz...' : 'Test Your Knowledge'}</span>
-                        </div>
+                        <Link href={`/quiz?moduleTitle=${encodeURIComponent(module.title)}&moduleDescription=${encodeURIComponent(module.description)}&learningGoal=${encodeURIComponent(learningGoal)}`}>
+                          <div className="flex items-center">
+                            <HelpCircle className="mr-2 h-5 w-5 text-primary" />
+                            <span>Test Your Knowledge</span>
+                          </div>
+                        </Link>
                       </Button>
-
-                    {currentQuizState?.error && !currentQuizState.isLoading && (
-                      <Alert variant="destructive" className="my-2">
-                        <AlertCircleIcon className="h-4 w-4" />
-                        <AlertTitle>Quiz Error</AlertTitle>
-                        <AlertDescription>{currentQuizState.error}</AlertDescription>
-                      </Alert>
-                    )}
-
-                    {currentQuizState?.isQuizVisible && currentQuizState.questions && !currentQuizState.isLoading && (
-                      <Card className="mt-2 shadow-inner bg-primary/5">
-                        <CardHeader>
-                          <CardTitle className="text-lg flex items-center">
-                            <ListChecks className="mr-2 h-5 w-5"/> Quiz: {module.title}
-                          </CardTitle>
-                          <CardDescription>Answer the following questions. (Interactive quiz coming soon!)</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {currentQuizState.questions.map((q, qIdx) => (
-                            <div key={qIdx} className="text-sm p-3 border rounded-md bg-background">
-                              <p className="font-medium mb-1">Question {qIdx + 1}: {q.questionText}</p>
-                              <ul className="list-disc list-inside pl-2 space-y-0.5 text-muted-foreground">
-                                {q.options.map((opt, oIdx) => (
-                                  <li key={oIdx} className={oIdx === q.correctAnswerIndex ? 'font-semibold text-primary' : ''}>
-                                    {String.fromCharCode(65 + oIdx)}. {opt} {oIdx === q.correctAnswerIndex ? '(Correct)' : ''}
-                                  </li>
-                                ))}
-                              </ul>
-                              {q.explanation && <p className="text-xs mt-1 text-muted-foreground/80"><em>Explanation: {q.explanation}</em></p>}
-                            </div>
-                          ))}
-                           <Button variant="outline" size="sm" onClick={() => setModuleQuizzes(prev => ({...prev, [index]: {...prev[index], isQuizVisible: false}}))} className="mt-3">
-                            Close Quiz
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    )}
                   </div>
                 </div>
               </AccordionContent>
