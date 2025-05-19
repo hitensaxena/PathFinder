@@ -6,13 +6,14 @@
  * - generateQuiz - A function that generates a quiz.
  * - GenerateQuizInput - The input type for the generateQuiz function.
  * - GenerateQuizOutput - The return type for the generateQuiz function.
- * - QuizQuestionSchema - The Zod schema for a single quiz question.
+ * - QuizQuestion - The type for a single quiz question.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const QuizQuestionSchema = z.object({
+// Removed export from schema definition
+const QuizQuestionSchema = z.object({
   questionText: z.string().describe('The text of the multiple-choice question.'),
   options: z.array(z.string()).length(4).describe('An array of 4 answer options.'),
   correctAnswerIndex: z.number().min(0).max(3).describe('The 0-based index of the correct answer in the options array.'),
@@ -20,14 +21,16 @@ export const QuizQuestionSchema = z.object({
 });
 export type QuizQuestion = z.infer<typeof QuizQuestionSchema>;
 
-export const GenerateQuizInputSchema = z.object({
+// Removed export from schema definition
+const GenerateQuizInputSchema = z.object({
   moduleTitle: z.string().describe('The title of the learning module for which to generate a quiz.'),
   moduleDescription: z.string().describe('The description of the learning module, providing context for quiz questions.'),
   // We could also pass detailed section content here if available and preferred for quiz context
 });
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 
-export const GenerateQuizOutputSchema = z.object({
+// Removed export from schema definition
+const GenerateQuizOutputSchema = z.object({
   questions: z.array(QuizQuestionSchema).length(10).describe('An array of 10 multiple-choice questions.'),
 });
 export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
@@ -84,3 +87,4 @@ const generateQuizFlow = ai.defineFlow(
     return output;
   }
 );
+
