@@ -3,22 +3,17 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Allow users to read, create, update, and delete their own learning paths
     match /learningPaths/{pathId} {
-      // Allow read if user is authenticated and the document's userId matches the requester's UID.
-      // Or, if you want any authenticated user to read any path:
-      // allow read: if request.auth != null;
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-
-      // Allow create if user is authenticated and is creating a path for themselves.
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-
-      // Allow update if user is authenticated and is updating their own path.
-      // This is needed to save generated module content to existing paths.
+      allow read: if request.auth != null; // Or more specific: request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update: if request.auth != null && request.auth.uid == resource.data.userId;
-
-      // Disallow delete by default.
-      // To allow users to delete their own paths:
-      // allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
+
+    // Example: For a 'users' collection
+    // match /users/{userId} {
+    //   allow read, write: if request.auth != null && request.auth.uid == userId;
+    // }
   }
 }

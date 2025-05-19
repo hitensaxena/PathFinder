@@ -1,5 +1,5 @@
 
-import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { GenerateLearningPathOutput } from '@/ai/flows/generate-learning-path';
 
@@ -13,9 +13,9 @@ export interface SavedModuleDetail {
 export interface SavedLearningPath extends GenerateLearningPathOutput {
   id: string;
   userId: string;
-  learningGoal: string;
+  learningGoal: string; // Ensure this is always present for new paths
   createdAt: Timestamp;
-  modulesDetails?: { [moduleIndex: string]: SavedModuleDetail }; // moduleIndex as string for Firestore map keys
+  modulesDetails?: { [moduleIndex: string]: SavedModuleDetail };
 }
 
 export async function saveLearningPath(
@@ -39,7 +39,7 @@ export async function saveLearningPath(
       userId,
       ...pathData,
       learningGoal,
-      modulesDetails: modulesDetails || {}, // Save module details if provided
+      modulesDetails: modulesDetails || {},
       createdAt: serverTimestamp(),
     });
     return docRef.id;
@@ -65,8 +65,13 @@ export async function getUserLearningPaths(userId: string): Promise<SavedLearnin
     const querySnapshot = await getDocs(q);
     const paths: SavedLearningPath[] = [];
     querySnapshot.forEach((doc) => {
-      const data = doc.data() as Omit<SavedLearningPath, 'id'>;
-      paths.push({ id: doc.id, ...data });
+      // learningGoal might be undefined for very old paths, ensure type compatibility
+      const data = doc.data() as Omit<SavedLearningPath, 'id' | 'learningGoal'> & { learningGoal?: string };
+      paths.push({ 
+        id: doc.id, 
+        ...data,
+        learningGoal: data.learningGoal || "Untitled Learning Path" // Provide a fallback
+      });
     });
     return paths;
   } catch (error) {
@@ -80,7 +85,7 @@ export async function getUserLearningPaths(userId: string): Promise<SavedLearnin
 
 export async function updateLearningPathModuleDetail(
   pathId: string,
-  moduleIndex: number, // Keep as number for consistency with component state
+  moduleIndex: number,
   detail: SavedModuleDetail
 ): Promise<void> {
   if (!pathId) throw new Error('Path ID is required.');
@@ -89,8 +94,6 @@ export async function updateLearningPathModuleDetail(
 
   const pathRef = doc(db, LEARNING_PATHS_COLLECTION, pathId);
   try {
-    // Use dot notation to update a specific field in a map
-    // Firestore map keys are strings, so convert moduleIndex
     await updateDoc(pathRef, {
       [`modulesDetails.${String(moduleIndex)}`]: detail,
     });
@@ -100,5 +103,42 @@ export async function updateLearningPathModuleDetail(
       throw new Error(`Failed to update module detail: ${error.message}`);
     }
     throw new Error('An unknown error occurred while updating module detail.');
+  }
+}
+
+export async function deleteLearningPath(pathId: string): Promise<void> {
+  if (!pathId) {
+    throw new Error('Path ID is required to delete a learning path.');
+  }
+  try {
+    const pathRef = doc(db, LEARNING_PATHS_COLLECTION, pathId);
+    await deleteDoc(pathRef);
+  } catch (error) {
+    console.error(`Error deleting learning path ${pathId}: `, error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to delete learning path: ${error.message}`);
+    }
+    throw new Error('An unknown error occurred while deleting the learning path.');
+  }
+}
+
+export async function updateLearningPathGoal(pathId: string, newLearningGoal: string): Promise<void> {
+  if (!pathId) {
+    throw new Error('Path ID is required to update the learning goal.');
+  }
+  if (!newLearningGoal || newLearningGoal.trim() === "") {
+    throw new Error('New learning goal cannot be empty.');
+  }
+  try {
+    const pathRef = doc(db, LEARNING_PATHS_COLLECTION, pathId);
+    await updateDoc(pathRef, {
+      learningGoal: newLearningGoal,
+    });
+  } catch (error) {
+    console.error(`Error updating learning goal for path ${pathId}: `, error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to update learning goal: ${error.message}`);
+    }
+    throw new Error('An unknown error occurred while updating the learning goal.');
   }
 }

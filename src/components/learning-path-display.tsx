@@ -45,9 +45,9 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
   }
 
   return (
-    <div className="mt-12">
-      <h2 className="text-3xl font-semibold mb-6 text-center text-primary">
-        Your Personalized Learning Path
+    <div className="mt-6"> {/* Reduced top margin from mt-12 to mt-6 */}
+      <h2 className="text-2xl font-semibold mb-4 text-center text-primary"> {/* Reduced font size and margin */}
+        Path Modules
       </h2>
       <Accordion type="single" collapsible defaultValue={`module-0`} className="w-full space-y-4">
         {path.modules.map((module: LearningModule, index: number) => {
@@ -80,7 +80,8 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                     </p>
                   </div>
 
-                  {onGenerateModuleContent && (
+                  {/* Detailed Content Section */}
+                  {(onGenerateModuleContent || (currentModuleContent && (currentModuleContent.content || currentModuleContent.error))) && (
                     <div className="mt-4 pt-4 border-t">
                       <h4 className="font-medium mb-2 text-lg">Detailed Content & Resources:</h4>
                       {currentModuleContent?.isLoading && (
@@ -100,7 +101,7 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                       {currentModuleContent?.content && !currentModuleContent.isLoading && (
                         <div 
                           className="prose prose-sm max-w-none text-foreground dark:prose-invert mb-4" 
-                          dangerouslySetInnerHTML={{ __html: currentModuleContent.content.replace(/\n/g, '<br />') }}
+                          dangerouslySetInnerHTML={{ __html: currentModuleContent.content.replace(/\n/g, '<br />') }} // Basic markdown formatting
                         />
                       )}
 
@@ -110,16 +111,17 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                             <Youtube className="h-5 w-5 mr-2 text-red-600" />
                             Suggested Video Searches:
                           </h5>
-                          <ul className="list-disc list-inside space-y-1">
+                          <ul className="list-disc list-inside space-y-1 pl-1">
                             {currentModuleContent.youtubeSearchQueries.map((query, qIndex) => (
-                              <li key={qIndex}>
+                              <li key={qIndex} className="text-sm">
                                 <a
                                   href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-primary hover:underline hover:text-accent transition-colors"
+                                  className="text-primary hover:underline hover:text-accent transition-colors inline-flex items-center group"
                                 >
                                   {query}
+                                  <ExternalLink className="ml-1 h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
                                 </a>
                               </li>
                             ))}
@@ -127,11 +129,13 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
                         </div>
                       )}
 
-                      {!currentModuleContent?.content && !currentModuleContent?.isLoading && !currentModuleContent?.error && (
+                      {/* Show button only if onGenerateModuleContent is provided AND content hasn't been loaded/attempted */}
+                      {onGenerateModuleContent && !currentModuleContent?.content && !currentModuleContent?.isLoading && !currentModuleContent?.error && (
                         <Button 
                           onClick={() => onGenerateModuleContent(index, module.title, module.description)}
                           variant="outline"
                           size="sm"
+                          className="mt-2"
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
                           Generate Detailed Content & Video Suggestions
@@ -161,5 +165,25 @@ export function LearningPathDisplay({ path, moduleContents = {}, onGenerateModul
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Simple ExternalLink icon component
+function ExternalLink(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
   );
 }

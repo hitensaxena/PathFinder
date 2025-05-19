@@ -4,9 +4,17 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
-import { getUserLearningPaths, updateLearningPathModuleDetail, type SavedLearningPath, type SavedModuleDetail } from "@/services/learningPathService";
+import { 
+  getUserLearningPaths, 
+  updateLearningPathModuleDetail, 
+  deleteLearningPath,
+  updateLearningPathGoal,
+  type SavedLearningPath, 
+  type SavedModuleDetail 
+} from "@/services/learningPathService";
 import { generateModuleContent, type GenerateModuleContentInput, type GenerateModuleContentOutput } from "@/ai/flows/generate-module-content";
 import { LearningPathDisplay } from "@/components/learning-path-display";
+import { SavedPathCardActions } from "@/components/saved-path-card-actions";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,6 +44,24 @@ export default function SavedPathsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [moduleContents, setModuleContents] = useState<AllModuleContentsState>({});
+
+  const fetchPaths = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const paths = await getUserLearningPaths(user.uid);
+      setSavedPaths(paths);
+      initializeModuleContents(paths);
+    } catch (e) {
+      console.error("Error fetching saved learning paths:", e);
+      const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while fetching your saved paths.";
+      setError(errorMessage);
+      toast({ title: "Error Fetching Paths", description: errorMessage, variant: "destructive"});
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, toast]); // initializeModuleContents will be defined below or made stable
 
   const initializeModuleContents = useCallback((paths: SavedLearningPath[]) => {
     const initialContents: AllModuleContentsState = {};
@@ -70,35 +96,18 @@ export default function SavedPathsPage() {
       setModuleContents({});
       return;
     }
-
-    async function fetchPaths() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const paths = await getUserLearningPaths(user.uid);
-        setSavedPaths(paths);
-        initializeModuleContents(paths);
-      } catch (e) {
-        console.error("Error fetching saved learning paths:", e);
-        const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred while fetching your saved paths.";
-        setError(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
     fetchPaths();
-  }, [user, authLoading, initializeModuleContents]);
+  }, [user, authLoading, fetchPaths]);
 
   const handleGenerateModuleContentForSavedPath = async (
     pathId: string,
-    learningGoal: string | undefined, // learningGoal might be undefined for old paths
+    learningGoal: string | undefined,
     moduleIndex: number,
     moduleTitle: string,
     moduleDescription: string
   ) => {
-    if (!learningGoal || typeof learningGoal !== 'string') {
-      const errorMessage = "Learning goal context is missing for this saved path. Detailed content cannot be generated.";
+    if (!learningGoal || typeof learningGoal !== 'string' || learningGoal === "Untitled Learning Path") {
+      const errorMessage = "Learning goal context is missing or invalid for this saved path. Detailed content cannot be generated.";
       setModuleContents(prev => ({
         ...prev,
         [pathId]: {
@@ -166,8 +175,38 @@ export default function SavedPathsPage() {
     }
   };
 
+  const handleDeletePath = async (pathId: string) => {
+    // Confirmation is handled by SavedPathCardActions
+    try {
+      await deleteLearningPath(pathId);
+      // Optimistically update UI or re-fetch
+      setSavedPaths(prevPaths => prevPaths.filter(p => p.id !== pathId));
+      // Remove module contents for the deleted path
+      setModuleContents(prevContents => {
+        const newContents = {...prevContents};
+        delete newContents[pathId];
+        return newContents;
+      });
+    } catch (error) {
+      // Error toast is handled by SavedPathCardActions, but log here if needed
+      console.error("Error in handleDeletePath callback from page:", error);
+    }
+  };
 
-  if (authLoading || isLoading) {
+  const handleRenamePath = async (pathId: string, newGoal: string) => {
+    // Confirmation/input is handled by SavedPathCardActions
+    try {
+      await updateLearningPathGoal(pathId, newGoal);
+      // Optimistically update UI or re-fetch
+      setSavedPaths(prevPaths => prevPaths.map(p => p.id === pathId ? {...p, learningGoal: newGoal} : p));
+    } catch (error) {
+      // Error toast is handled by SavedPathCardActions, but log here if needed
+      console.error("Error in handleRenamePath callback from page:", error);
+    }
+  };
+
+
+  if (authLoading || (isLoading && savedPaths.length === 0)) { // Show loading if auth is loading OR initial data fetch is happening
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -215,7 +254,7 @@ export default function SavedPathsPage() {
             <BookCopy className="mr-3 h-8 w-8 text-primary" /> Your Saved Learning Paths
           </h1>
           <p className="text-lg text-muted-foreground">
-            Revisit your personalized learning journeys and generate detailed content.
+            Revisit your personalized learning journeys, generate detailed content, and manage your paths.
           </p>
         </div>
 
@@ -246,19 +285,29 @@ export default function SavedPathsPage() {
           </Card>
         )}
 
-        {!isLoading && !error && savedPaths.length > 0 && (
+        {!error && savedPaths.length > 0 && ( // No need for !isLoading here if we handle empty state correctly
           <div className="space-y-12">
             {savedPaths.map((path) => (
               <Card key={path.id} className="shadow-xl overflow-hidden border-t-4 border-primary">
                 <CardHeader>
-                  <CardTitle className="text-2xl">
-                    {path.learningGoal || "Learning Path"}
-                  </CardTitle>
-                   {path.createdAt && (
-                     <CardDescription>
-                       Saved {formatDistanceToNow(path.createdAt.toDate(), { addSuffix: true })}
-                     </CardDescription>
-                   )}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-2xl">
+                        {path.learningGoal || "Learning Path"} 
+                      </CardTitle>
+                      {path.createdAt && (
+                        <CardDescription>
+                          Saved {formatDistanceToNow(path.createdAt.toDate(), { addSuffix: true })}
+                        </CardDescription>
+                      )}
+                    </div>
+                    <SavedPathCardActions 
+                      pathId={path.id}
+                      currentLearningGoal={path.learningGoal || ""}
+                      onDelete={handleDeletePath}
+                      onRename={handleRenamePath}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <LearningPathDisplay
@@ -279,6 +328,7 @@ export default function SavedPathsPage() {
   );
 }
 
+// Header and Footer components remain the same
 function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -293,7 +343,7 @@ function Header() {
           </div>
           <h1 className="text-2xl font-bold text-primary ml-2">PathAInder</h1>
         </Link>
-        {/* AuthButtons could be imported here */}
+        {/* AuthButtons could be imported here if needed, or ensure it's on the main page layout */}
       </div>
     </header>
   );
