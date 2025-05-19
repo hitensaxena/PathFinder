@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from 'next/navigation';
+import { headers } from 'next/headers';
 import { useLearningPath } from "@/context/learning-path-context";
 import { generateLearningPath, type GenerateLearningPathInput, type GenerateLearningPathOutput } from "@/ai/flows/generate-learning-path";
 import { useAuth } from "@/context/auth-context";
@@ -25,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function GeneratePathPage() {
   const router = useRouter();
+  headers(); // Force dynamic rendering
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
