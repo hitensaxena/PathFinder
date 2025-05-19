@@ -69,11 +69,29 @@ export default function SavedPathsPage() {
 
   const handleGenerateModuleContentForSavedPath = async (
     pathId: string,
-    learningGoal: string,
+    learningGoal: string, // This is typed as string from SavedLearningPath
     moduleIndex: number,
     moduleTitle: string,
     moduleDescription: string
   ) => {
+    // learningGoal might be undefined if the Firestore document is old and doesn't have this field.
+    if (!learningGoal || typeof learningGoal !== 'string') {
+      const errorMessage = "Learning goal context is missing for this saved path. Cannot generate detailed content.";
+      setModuleContents(prev => ({
+        ...prev,
+        [pathId]: {
+          ...(prev[pathId] || {}),
+          [moduleIndex]: { isLoading: false, content: null, youtubeSearchQueries: null, error: errorMessage }
+        }
+      }));
+      toast({
+        title: `Cannot Generate Content for "${moduleTitle}"`,
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setModuleContents(prev => ({
       ...prev,
       [pathId]: {
@@ -86,7 +104,7 @@ export default function SavedPathsPage() {
       const input: GenerateModuleContentInput = {
         moduleTitle,
         moduleDescription,
-        learningGoal,
+        learningGoal, // Now learningGoal is guaranteed to be a non-empty string here
       };
       const result = await generateModuleContent(input);
       setModuleContents(prev => ({
